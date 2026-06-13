@@ -102,6 +102,12 @@
   .cell-input { width: 100%; padding: 12px 14px; background: rgba(94,231,176,0.06); border: 1px solid var(--green); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
   .cell-link { color: var(--green); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cell-link:hover { text-decoration: underline; }
+  .links-stack { display: flex; flex-direction: column; gap: 4px; }
+  .links-cell { align-items: flex-start; }
+  .cell-textarea { resize: vertical; min-height: 60px; line-height: 1.5; white-space: pre; font-family: inherit; }
+  .date-cell { display: flex; align-items: center; gap: 8px; }
+  .dl-ring { flex-shrink: 0; display: inline-flex; align-items: center; }
+  .dl-ring svg { display: block; }
   .cell-empty { color: var(--text-muted); font-style: italic; opacity: 0.6; }
   .status-cell { padding: 12px 14px; cursor: pointer; }
   .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
@@ -297,12 +303,11 @@
     <div class="login-brand"><img src="data:image/png;base64,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" alt="AR Studioss" style="width:88px;height:88px;border-radius:20px;margin:0 auto 16px;display:block;box-shadow:0 0 40px rgba(94,231,176,0.3)"><p>Agency OS — sign in to continue</p></div>
     <div class="role-tabs">
       <div class="role-tab active" data-role="admin" onclick="switchRole('admin')">Admin</div>
-      <div class="role-tab" data-role="team" onclick="switchRole('team')">Team</div>
+      <div class="role-tab" data-role="editor" onclick="switchRole('editor')">Editor</div>
     </div>
     <div id="adminLogin"><div class="form-group"><label>Password</label><input type="password" id="adminPass" placeholder="Enter admin password"></div></div>
-    <div id="teamLogin" style="display:none">
-      <div class="form-group"><label>Team</label><select id="teamSelect"><option value="">Select your team</option></select></div>
-      <div class="form-group"><label>Access Code</label><input type="password" id="teamCode" placeholder="Enter your team code"></div>
+    <div id="editorLogin" style="display:none">
+      <div class="form-group"><label>Editor Access Code</label><input type="password" id="editorCode" placeholder="Enter editor code"></div>
     </div>
     <label class="checkbox-row"><input type="checkbox" id="rememberMe" checked><span>Remember me on this device</span></label>
     <button class="btn btn-primary" onclick="login()" style="width:100%;padding:13px">Sign in</button>
@@ -355,7 +360,7 @@
     </div>
     <div class="table-wrap">
       <table class="crm"><thead><tr id="crmHead"></tr></thead><tbody id="crmBody"></tbody></table>
-      <div class="add-row-bar" onclick="addRow()">＋ Add row</div>
+      <div class="add-row-bar" id="addRowBar" onclick="addRow()">＋ Add row</div>
     </div>
   </div>
 
@@ -425,17 +430,19 @@
   ];
   function statusClass(v) { const s = STATUS_OPTIONS.find(o => o.value === v); return s ? s.cls : 'status-assigned'; }
   const DEFAULT_COLUMNS = [
-    { id:'rawFile', label:'Raw File', type:'link', adminOnly:false, locked:true },
-    { id:'editor', label:'Editor', type:'editor', adminOnly:false, locked:true },
-    { id:'revenue', label:'Revenue', type:'revenue', adminOnly:true, locked:true },
-    { id:'points', label:'Points', type:'points', adminOnly:false, locked:true },
-    { id:'status', label:'Status', type:'status', adminOnly:false, locked:true },
-    { id:'deadline', label:'Deadline', type:'date', adminOnly:false, locked:true },
-    { id:'frameio', label:'Frame.io', type:'link', adminOnly:false, locked:true },
-    { id:'finalVideo', label:'Final Video', type:'link', adminOnly:false, locked:true }
+    { id:'rawFile', label:'Raw Footage', type:'links', adminOnly:false, locked:true, editorEditable:true },
+    { id:'editor', label:'Editor', type:'editor', adminOnly:false, locked:true, editorEditable:false },
+    { id:'revenue', label:'Revenue', type:'revenue', adminOnly:true, locked:true, editorEditable:false },
+    { id:'points', label:'Points', type:'points', adminOnly:false, locked:true, editorEditable:false },
+    { id:'status', label:'Status', type:'status', adminOnly:false, locked:true, editorEditable:true },
+    { id:'deadline', label:'Deadline', type:'date', adminOnly:false, locked:true, editorEditable:false },
+    { id:'frameio', label:'Frame.io', type:'links', adminOnly:false, locked:true, editorEditable:true },
+    { id:'finalVideo', label:'Final Video', type:'links', adminOnly:false, locked:true, editorEditable:true },
+    { id:'notes', label:'Notes', type:'text', adminOnly:false, locked:true, editorEditable:true }
   ];
   const DEFAULT_DATA = {
     adminPass: 'admin123',
+    editorPass: 'editor123',
     teams: [
       { id:'t_siam', name:'Team Siam', leader:'Siam', password:'siam123', members:['Siam','Raian','Mehraj'] },
       { id:'t_riad', name:'Team Riad', leader:'Riad', password:'riad123', members:['Riad','Nobin','Kiron'] }
@@ -503,6 +510,24 @@
         if (data.tiersV2 === undefined) data.tiersV2 = true;
         if (!data.rates) data.rates = { summary:122, split:122, expense:122, calc:122 };
         if (!data.monthRates) data.monthRates = {};
+        if (!data.editorPass) data.editorPass = 'editor123';
+        // One-time upgrade for editor-permissions + Notes column + multi-link cells
+        if (!data.colsV2) {
+          const editableIds = ['rawFile','status','frameio','finalVideo','notes'];
+          const linkIds = ['rawFile','frameio','finalVideo'];
+          data.columns.forEach(c => {
+            if (c.editorEditable === undefined) c.editorEditable = editableIds.includes(c.id);
+            if (linkIds.includes(c.id) && c.type === 'link') c.type = 'links';
+          });
+          // rename Raw File -> Raw Footage
+          const rf = data.columns.find(c => c.id === 'rawFile');
+          if (rf && rf.label === 'Raw File') rf.label = 'Raw Footage';
+          // add Notes column if missing
+          if (!data.columns.find(c => c.id === 'notes')) {
+            data.columns.push({ id:'notes', label:'Notes', type:'text', adminOnly:false, locked:true, editorEditable:true });
+          }
+          data.colsV2 = true;
+        }
         const seen = new Set();
         data.rows = data.rows.filter(r => { if (!r.id || seen.has(r.id)) return false; seen.add(r.id); return true; });
       } else { await saveData(); }
@@ -583,15 +608,12 @@
   function isLeaderboardLocked() { const d = new Date().getDate(); return d >= 9 && d <= 15; }
   function daysUntilReveal() { return 16 - new Date().getDate(); }
 
-  function populateLoginDropdown() {
-    document.getElementById('teamSelect').innerHTML = '<option value="">Select your team</option>' +
-      data.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  }
+  function populateLoginDropdown() { /* no team dropdown anymore */ }
   function switchRole(role) {
     document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`.role-tab[data-role="${role}"]`).classList.add('active');
     document.getElementById('adminLogin').style.display = role === 'admin' ? 'block' : 'none';
-    document.getElementById('teamLogin').style.display = role === 'team' ? 'block' : 'none';
+    document.getElementById('editorLogin').style.display = role === 'editor' ? 'block' : 'none';
     document.getElementById('loginError').classList.remove('show');
   }
   function login() {
@@ -601,10 +623,8 @@
       if (document.getElementById('adminPass').value === data.adminPass) { session = { role:'admin' }; saveSession(); showApp(); }
       else err.classList.add('show');
     } else {
-      const teamId = document.getElementById('teamSelect').value;
-      const code = document.getElementById('teamCode').value;
-      const team = data.teams.find(t => t.id === teamId);
-      if (team && team.password === code) { session = { role:'team', teamId }; saveSession(); showApp(); }
+      const code = document.getElementById('editorCode').value;
+      if (code === (data.editorPass || 'editor123')) { session = { role:'editor' }; saveSession(); showApp(); }
       else err.classList.add('show');
     }
   }
@@ -612,10 +632,10 @@
     stopAutoRefresh(); clearSession();
     document.getElementById('mainApp').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminPass').value = ''; document.getElementById('teamCode').value = '';
-    populateLoginDropdown();
+    document.getElementById('adminPass').value = ''; const ec = document.getElementById('editorCode'); if (ec) ec.value = '';
   }
   function isAdmin() { return session && session.role === 'admin'; }
+  function isEditor() { return session && session.role === 'editor'; }
   function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
@@ -623,11 +643,12 @@
       document.getElementById('userBadge').textContent = '⚡ Admin';
       document.getElementById('financeTab').style.display = 'flex';
       document.getElementById('addColBtn').style.display = 'inline-block';
+      const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'flex';
     } else {
-      const team = data.teams.find(t => t.id === session.teamId);
-      document.getElementById('userBadge').textContent = `👥 ${team ? team.name : ''}`;
+      document.getElementById('userBadge').textContent = '✂️ Editor';
       document.getElementById('financeTab').style.display = 'none';
       document.getElementById('addColBtn').style.display = 'none';
+      const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'none';
       if (currentPage === 'finance') switchPage('crm');
     }
     renderAll(); startAutoRefresh();
@@ -748,19 +769,65 @@
       body.innerHTML += `<tr class="totals-row">${tc}<td></td></tr>`;
     }
   }
+  // Permission: can the current user edit this column?
+  function canEdit(c) {
+    if (isAdmin()) return true;
+    // editor: only columns flagged editorEditable
+    return !!c.editorEditable;
+  }
+
+  // Deadline ring: returns SVG showing time remaining (fills + reddens as deadline nears)
+  function deadlineRing(iso) {
+    if (!iso) return '';
+    const now = new Date();
+    const dl = new Date(iso + 'T23:59:59');
+    const created = now; // we only know "now"; ring is based on days remaining
+    const msLeft = dl - now;
+    const daysLeft = msLeft / (1000*60*60*24);
+    // fraction filled: assume a 14-day window; closer = more filled
+    let frac;
+    if (daysLeft <= 0) frac = 1;
+    else if (daysLeft >= 14) frac = 0.08;
+    else frac = 1 - (daysLeft / 14);
+    frac = Math.max(0.05, Math.min(1, frac));
+    // color: green far, amber mid, red close/overdue
+    let color = 'var(--green)';
+    if (daysLeft <= 0) color = 'var(--red)';
+    else if (daysLeft <= 2) color = 'var(--red)';
+    else if (daysLeft <= 5) color = 'var(--amber)';
+    const r = 7, c = 2 * Math.PI * r;
+    const off = c * (1 - frac);
+    const title = daysLeft <= 0 ? 'Overdue' : Math.ceil(daysLeft) + ' day' + (Math.ceil(daysLeft)===1?'':'s') + ' left';
+    return `<span class="dl-ring" title="${title}"><svg width="18" height="18" viewBox="0 0 18 18">
+      <circle cx="9" cy="9" r="${r}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2.5"/>
+      <circle cx="9" cy="9" r="${r}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round"
+        stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" transform="rotate(-90 9 9)"/>
+    </svg></span>`;
+  }
+
+  // parse a links cell value (newline-separated) into array
+  function parseLinks(val) {
+    if (!val) return [];
+    return String(val).split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
   function renderCell(r, c) {
     const val = r[c.id];
+    const editable = canEdit(c);
     if (c.type === 'editor') {
       const inner = val ? `<span class="editor-pill"><span class="editor-avatar">${escapeHtml((val[0]||'?').toUpperCase())}</span>${escapeHtml(val)}</span>` : `<span class="cell-empty">Assign editor</span>`;
-      return `<td><div class="editor-cell" onclick="openEditorDropdown(event,'${r.id}')">${inner}</div></td>`;
+      const click = editable ? `onclick="openEditorDropdown(event,'${r.id}')"` : '';
+      return `<td><div class="editor-cell" ${click} style="${editable?'':'cursor:default'}">${inner}</div></td>`;
     }
     if (c.type === 'status') {
       const s = val || 'Assigned';
-      return `<td><div class="status-cell" onclick="openStatusDropdown(event,'${r.id}')"><span class="status-pill ${statusClass(s)}">${escapeHtml(s)}</span></div></td>`;
+      const click = editable ? `onclick="openStatusDropdown(event,'${r.id}')"` : '';
+      return `<td><div class="status-cell" ${click} style="${editable?'':'cursor:default'}"><span class="status-pill ${statusClass(s)}">${escapeHtml(s)}</span></div></td>`;
     }
     if (c.type === 'revenue') {
       const disp = val ? `<span class="revenue-val">$${Number(val).toLocaleString()}</span>` : `<span class="cell-empty">$0</span>`;
-      return `<td><div class="num-cell" onclick="editNumCell(event,'${r.id}','revenue')">${disp}</div></td>`;
+      const click = editable ? `onclick="editNumCell(event,'${r.id}','revenue')"` : '';
+      return `<td><div class="num-cell" ${click}>${disp}</div></td>`;
     }
     if (c.type === 'points') {
       const auto = (r.points == null);
@@ -770,15 +837,31 @@
       return `<td><div class="num-cell" ${clickable}><span class="points-val">${pts}</span>${isAdmin()?tag:''}</div></td>`;
     }
     if (c.type === 'date') {
-      const disp = val ? formatDate(val) : `<span class="cell-empty">Set date</span>`;
-      return `<td><div class="cell" onclick="openCalendar(event,'${r.id}','${c.id}')">${disp}</div></td>`;
+      const ring = deadlineRing(val);
+      const txt = val ? formatDate(val) : `<span class="cell-empty">Set date</span>`;
+      const click = editable ? `onclick="openCalendar(event,'${r.id}','${c.id}')"` : '';
+      return `<td><div class="cell date-cell" ${click} style="${editable?'':'cursor:default'}">${ring}<span>${txt}</span></div></td>`;
+    }
+    if (c.type === 'links') {
+      const links = parseLinks(val);
+      let disp;
+      if (links.length) {
+        disp = '<div class="links-stack">' + links.map(l => `<a href="${escapeAttr(linkify(l))}" target="_blank" class="cell-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(truncate(l))}</a>`).join('') + '</div>';
+      } else {
+        disp = `<span class="cell-empty">Add link</span>`;
+      }
+      const click = editable ? `onclick="editLinksCell(event,'${r.id}','${c.id}')"` : '';
+      return `<td><div class="cell links-cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
     }
     if (c.type === 'link') {
       const disp = val ? `<a href="${escapeAttr(linkify(val))}" target="_blank" class="cell-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(truncate(val))}</a>` : `<span class="cell-empty">Add link</span>`;
-      return `<td><div class="cell" onclick="editTextCell(event,'${r.id}','${c.id}')">${disp}</div></td>`;
+      const click = editable ? `onclick="editTextCell(event,'${r.id}','${c.id}')"` : '';
+      return `<td><div class="cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
     }
-    const disp = val ? escapeHtml(val) : `<span class="cell-empty">—</span>`;
-    return `<td><div class="cell" onclick="editTextCell(event,'${r.id}','${c.id}')">${disp}</div></td>`;
+    // text
+    const disp = val ? escapeHtml(val).replace(/\n/g,'<br>') : `<span class="cell-empty">—</span>`;
+    const click = editable ? `onclick="editTextCell(event,'${r.id}','${c.id}')"` : '';
+    return `<td><div class="cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
   }
   function truncate(s, n=22) { s = String(s); return s.length > n ? s.slice(0,n) + '…' : s; }
   function linkify(s) { s = String(s).trim(); if (/^https?:\/\//i.test(s)) return s; return 'https://' + s; }
@@ -792,6 +875,26 @@
     const commit = async () => { r[colId] = input.value.trim(); renderCRM(); await saveData(); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => { if (ev.key==='Enter') input.blur(); if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+  }
+
+  function editLinksCell(e, rowId, colId) {
+    const r = data.rows.find(x => x.id === rowId); if (!r) return;
+    const td = e.currentTarget.parentElement;
+    const cur = r[colId] || '';
+    td.innerHTML = `<textarea class="cell-input cell-textarea" rows="${Math.max(2, parseLinks(cur).length)}">${escapeHtml(cur)}</textarea>`;
+    const input = td.querySelector('textarea'); input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    const commit = async () => {
+      // normalize: trim each line, drop blanks
+      r[colId] = parseLinks(input.value).join('\n');
+      renderCRM(); await saveData();
+    };
+    input.addEventListener('blur', commit, { once:true });
+    input.addEventListener('keydown', ev => {
+      // Enter commits; Shift+Enter inserts a newline (default behavior)
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderCRM(); }
+    });
   }
   function editNumCell(e, rowId, field) {
     if (!isAdmin()) return;
@@ -813,6 +916,7 @@
   let openMenu = null;
   function closeMenus() { if (openMenu) { openMenu.remove(); openMenu = null; } document.querySelectorAll('.dropdown-menu, .mini-calendar').forEach(m => m.remove()); }
   function openEditorDropdown(e, rowId) {
+    if (!isAdmin()) return;
     e.stopPropagation(); closeMenus();
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const menu = document.createElement('div'); menu.className = 'dropdown-menu';
@@ -870,6 +974,7 @@
 
   let calState = { rowId:null, colId:null, viewYear:0, viewMonth:0 };
   function openCalendar(e, rowId, colId) {
+    if (!isAdmin()) return;
     e.stopPropagation(); closeMenus();
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const cur = r[colId] ? new Date(r[colId]+'T00:00:00') : new Date();
@@ -912,22 +1017,26 @@
   document.addEventListener('click', e => { if (openMenu && !openMenu.contains(e.target)) closeMenus(); });
 
   async function addRow() {
-    data.rows.push({ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1000), period: activePeriodKey(), rawFile:'', editor:null, revenue:null, points:null, status:'Assigned', deadline:null, frameio:'', finalVideo:'', createdAt:new Date().toISOString() });
+    if (!isAdmin()) return;
+    data.rows.push({ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1000), period: activePeriodKey(), rawFile:'', editor:null, revenue:null, points:null, status:'Assigned', deadline:null, frameio:'', finalVideo:'', notes:'', createdAt:new Date().toISOString() });
     renderCRM(); await saveData();
   }
   function deleteRow(rowId) {
+    if (!isAdmin()) return;
     showConfirm('Delete row?', 'This row will be permanently deleted.', 'Delete', async () => {
       data.rows = data.rows.filter(r => r.id !== rowId); renderCRM(); await saveData(); showToast('Row deleted');
     }, true);
   }
   function addColumn() {
+    if (!isAdmin()) return;
     showPrompt('Add column', 'Name your new column:', '', async (name) => {
       name = name.trim(); if (!name) return;
-      data.columns.push({ id:'col_'+Date.now(), label:name, type:'text', adminOnly:false, locked:false });
+      data.columns.push({ id:'col_'+Date.now(), label:name, type:'text', adminOnly:false, locked:false, editorEditable:true });
       renderCRM(); await saveData(); showToast(`Column "${name}" added`);
     });
   }
   function deleteColumn(colId) {
+    if (!isAdmin()) return;
     const col = data.columns.find(c => c.id === colId);
     if (!col || col.locked) { showToast('This column cannot be deleted'); return; }
     showConfirm('Delete column?', `"${col.label}" and all its data will be removed.`, 'Delete', async () => {
@@ -959,28 +1068,20 @@
     let html = '<div class="rankings-grid">';
     html += '<div class="ranking-block"><div class="ranking-title">Team Leader Ranking</div><div class="ranking-list">';
     html += teams.map((t,i) => {
-      const isMe = !isAdmin() && session.teamId === t.id;
       const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other';
-      return `<div class="ranking-row ${isMe?'me':''}"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(t.leader)} <span style="color:var(--text-muted);font-weight:500;font-size:11px">· ${escapeHtml(t.name)}</span>${isMe?'<span class="you-tag">You</span>':''}</div></div><div class="ranking-points">${t.points}</div></div>`;
+      return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(t.leader)} <span style="color:var(--text-muted);font-weight:500;font-size:11px">· ${escapeHtml(t.name)}</span></div></div><div class="ranking-points">${t.points}</div></div>`;
     }).join('');
     html += '</div></div>';
     html += '<div class="ranking-block"><div class="ranking-title">Editor Ranking</div><div class="ranking-list">';
-    if (isAdmin()) {
-      data.teams.forEach(t => {
-        const editors = t.members.map(m => ({ name:m, points:editorPoints[m]||0, leader:m===t.leader })).sort((a,b) => b.points - a.points);
-        html += `<div class="ranking-section-label">${escapeHtml(t.name)}</div>`;
-        html += editors.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}${e.leader?'<span style="color:var(--green);font-size:10px;margin-left:6px">★ Leader</span>':''}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
-      });
-      // Individuals section
-      const indivs = (data.individuals || []).map(m => ({ name:m, points:editorPoints[m]||0 })).sort((a,b) => b.points - a.points);
-      if (indivs.length) {
-        html += `<div class="ranking-section-label">Individuals</div>`;
-        html += indivs.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
-      }
-    } else {
-      const team = data.teams.find(t => t.id === session.teamId);
-      const editors = team.members.map(m => ({ name:m, points:editorPoints[m]||0, leader:m===team.leader })).sort((a,b) => b.points - a.points);
+    data.teams.forEach(t => {
+      const editors = t.members.map(m => ({ name:m, points:editorPoints[m]||0, leader:m===t.leader })).sort((a,b) => b.points - a.points);
+      html += `<div class="ranking-section-label">${escapeHtml(t.name)}</div>`;
       html += editors.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}${e.leader?'<span style="color:var(--green);font-size:10px;margin-left:6px">★ Leader</span>':''}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
+    });
+    const indivs = (data.individuals || []).map(m => ({ name:m, points:editorPoints[m]||0 })).sort((a,b) => b.points - a.points);
+    if (indivs.length) {
+      html += `<div class="ranking-section-label">Individuals</div>`;
+      html += indivs.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
     }
     html += '</div></div></div>';
     container.innerHTML = html;
@@ -1428,21 +1529,20 @@
   function openSettings() { document.getElementById('settingsModal').classList.add('show'); renderSettings(); }
   function renderSettings() {
     if (isAdmin()) { document.getElementById('settingsTitle').textContent = 'Admin Settings'; document.getElementById('settingsSub').textContent = 'Manage teams, members, and passwords'; renderAdminSettings(); }
-    else { const team = data.teams.find(t => t.id === session.teamId); document.getElementById('settingsTitle').textContent = team.name + ' Settings'; document.getElementById('settingsSub').textContent = 'Manage your password'; renderTeamSettings(); }
+    else { document.getElementById('settingsTitle').textContent = 'Editor Settings'; document.getElementById('settingsSub').textContent = 'Your teams and info'; renderTeamSettings(); }
   }
   function renderAdminSettings() {
     let html = `<div class="team-section"><h4>Admin Password</h4><div class="password-row"><div class="pwd-field"><input type="password" id="adminPassInput" value="${escapeAttr(data.adminPass)}"><button type="button" class="pwd-toggle" onclick="togglePwd('adminPassInput',this)">👁</button></div><button onclick="changeAdminPass()">Update</button></div></div>`;
-    html += data.teams.map(t => `<div class="team-section"><h4>${escapeHtml(t.name)}</h4><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">LEADER</div><div class="members-list"><span class="member-pill"><span class="leader-mark">★</span>${escapeHtml(t.leader)}</span></div><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">MEMBERS</div><div class="members-list">${t.members.filter(m=>m!==t.leader).map(m=>`<span class="member-pill">${escapeHtml(m)}<button onclick="removeMember('${t.id}','${escapeAttr(m)}')">×</button></span>`).join('') || '<span style="color:var(--text-muted);font-size:12px">No additional members</span>'}</div><div class="add-member-row"><input type="text" id="newMember_${t.id}" placeholder="Add member name"><button onclick="addMember('${t.id}')">+ Add</button></div><div style="font-size:11px;color:var(--text-muted);margin-top:14px;margin-bottom:6px">PASSWORD</div><div class="password-row"><div class="pwd-field"><input type="password" id="teamPass_${t.id}" value="${escapeAttr(t.password)}"><button type="button" class="pwd-toggle" onclick="togglePwd('teamPass_${t.id}',this)">👁</button></div><button onclick="changeTeamPass('${t.id}')">Update</button></div></div>`).join('');
+    html += `<div class="team-section"><h4>Editor Password</h4><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">All editors share this one code to log in</div><div class="password-row"><div class="pwd-field"><input type="password" id="editorPassInput" value="${escapeAttr(data.editorPass||'editor123')}"><button type="button" class="pwd-toggle" onclick="togglePwd('editorPassInput',this)">👁</button></div><button onclick="changeEditorPass()">Update</button></div></div>`;
+    html += data.teams.map(t => `<div class="team-section"><h4>${escapeHtml(t.name)}</h4><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">LEADER</div><div class="members-list"><span class="member-pill"><span class="leader-mark">★</span>${escapeHtml(t.leader)}</span></div><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">MEMBERS</div><div class="members-list">${t.members.filter(m=>m!==t.leader).map(m=>`<span class="member-pill">${escapeHtml(m)}<button onclick="removeMember('${t.id}','${escapeAttr(m)}')">×</button></span>`).join('') || '<span style="color:var(--text-muted);font-size:12px">No additional members</span>'}</div><div class="add-member-row"><input type="text" id="newMember_${t.id}" placeholder="Add member name"><button onclick="addMember('${t.id}')">+ Add</button></div></div>`).join('');
     document.getElementById('settingsBody').innerHTML = html;
   }
   function renderTeamSettings() {
-    const team = data.teams.find(t => t.id === session.teamId);
-    document.getElementById('settingsBody').innerHTML = `<div class="team-section"><h4>Team Members</h4><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">LEADER</div><div class="members-list"><span class="member-pill"><span class="leader-mark">★</span>${escapeHtml(team.leader)}</span></div><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;margin-top:10px">MEMBERS</div><div class="members-list">${team.members.filter(m=>m!==team.leader).map(m=>`<span class="member-pill">${escapeHtml(m)}</span>`).join('') || '<span style="color:var(--text-muted);font-size:12px">No additional members</span>'}</div><p style="color:var(--text-muted);font-size:12px;margin-top:10px">Ask admin to add or remove members.</p></div><div class="team-section"><h4>Change Team Password</h4><div class="password-row"><div class="pwd-field"><input type="password" id="teamPassInput" placeholder="New password"><button type="button" class="pwd-toggle" onclick="togglePwd('teamPassInput',this)">👁</button></div><button onclick="changeMyTeamPass()">Update</button></div></div>`;
+    document.getElementById('settingsBody').innerHTML = `<div class="team-section"><h4>Teams</h4>${data.teams.map(t => `<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--green);margin-bottom:6px;font-weight:700">${escapeHtml(t.name)}</div><div class="members-list">${t.members.map(m=>`<span class="member-pill">${m===t.leader?'<span class="leader-mark">★</span>':''}${escapeHtml(m)}</span>`).join('')}</div></div>`).join('')}<p style="color:var(--text-muted);font-size:12px;margin-top:10px">Ask the admin to change team members or your access code.</p></div>`;
   }
   function togglePwd(id, btn) { const i = document.getElementById(id); if (i.type==='password') { i.type='text'; btn.textContent='🙈'; } else { i.type='password'; btn.textContent='👁'; } }
   async function changeAdminPass() { const v = document.getElementById('adminPassInput').value.trim(); if (!v) { showToast('Password cannot be empty'); return; } data.adminPass = v; await saveData(); showToast('Admin password updated'); }
-  async function changeTeamPass(teamId) { const v = document.getElementById('teamPass_'+teamId).value.trim(); if (!v) { showToast('Password cannot be empty'); return; } const t = data.teams.find(x=>x.id===teamId); if (t) { t.password=v; await saveData(); showToast(t.name+' password updated'); } }
-  async function changeMyTeamPass() { const v = document.getElementById('teamPassInput').value.trim(); if (!v) { showToast('Password cannot be empty'); return; } const t = data.teams.find(x=>x.id===session.teamId); if (t) { t.password=v; await saveData(); showToast('Password updated'); document.getElementById('teamPassInput').value=''; } }
+  async function changeEditorPass() { const v = document.getElementById('editorPassInput').value.trim(); if (!v) { showToast('Password cannot be empty'); return; } data.editorPass = v; await saveData(); showToast('Editor password updated'); }
   async function addMember(teamId) {
     const input = document.getElementById('newMember_'+teamId); const name = input.value.trim(); if (!name) return;
     const t = data.teams.find(x=>x.id===teamId); if (!t) return;
