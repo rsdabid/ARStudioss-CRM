@@ -108,6 +108,57 @@
   .date-cell { display: flex; align-items: center; gap: 8px; }
   .dl-ring { flex-shrink: 0; display: inline-flex; align-items: center; }
   .dl-ring svg { display: block; }
+
+  /* Remove number input spinners globally for rate inputs */
+  .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .rate-input { -moz-appearance: textfield; }
+
+  /* Fun leaderboard rankings */
+  @keyframes sparkle { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.3) drop-shadow(0 0 6px rgba(255,215,0,0.7)); } }
+  @keyframes auraGlow { 0%,100% { box-shadow: 0 0 6px rgba(180,140,255,0.25); } 50% { box-shadow: 0 0 16px rgba(180,140,255,0.6); } }
+  @keyframes sigmaShift { 0%,100% { opacity: 0.85; } 50% { opacity: 1; } }
+  @keyframes npcIdle { 0%,100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
+  @keyframes crownBounce { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-2px) rotate(3deg); } }
+  @keyframes goldShimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes ultimatePulse { 0%,100% { box-shadow: 0 0 0 rgba(255,215,0,0), inset 0 0 0 rgba(255,215,0,0); transform: scale(1); } 50% { box-shadow: 0 0 40px rgba(255,215,0,0.5), inset 0 0 30px rgba(255,215,0,0.1); transform: scale(1.01); } }
+  @keyframes confettiFloat { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(-40px) rotate(360deg); opacity: 0; } }
+  @keyframes trophyBob { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.08); } }
+
+  .rank-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px; margin-left: 6px; white-space: nowrap; will-change: filter, box-shadow, opacity; }
+  .rank-giga { background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,180,0,0.15)); color: var(--gold); animation: sparkle 2s ease-in-out infinite; }
+  .rank-aura { background: linear-gradient(135deg, rgba(180,140,255,0.2), rgba(140,100,255,0.1)); color: var(--purple); animation: auraGlow 3s ease-in-out infinite; }
+  .rank-sigma { background: linear-gradient(135deg, rgba(74,158,255,0.2), rgba(40,120,255,0.1)); color: var(--blue); animation: sigmaShift 4s ease-in-out infinite; }
+  .rank-npc { background: rgba(90,120,104,0.2); color: var(--text-muted); animation: npcIdle 6s ease-in-out infinite; }
+  .crown { display: inline-block; animation: crownBounce 2s ease-in-out infinite; margin-right: 4px; }
+
+  /* Team color dividers */
+  .team-divider { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; padding: 14px 4px 8px; margin-top: 6px; display: flex; align-items: center; gap: 8px; border-top: 1px dashed; }
+  .team-divider:first-child { border-top: none; padding-top: 4px; margin-top: 0; }
+  .team-divider-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+
+  /* TEAM WINNING — Stage 1: simple gold (weeks 1-3) */
+  .team-gold { position: relative; background: linear-gradient(90deg, rgba(255,215,0,0.08), rgba(255,180,0,0.03), rgba(255,215,0,0.08)); background-size: 200% 100%; border: 1px solid rgba(255,215,0,0.35) !important; animation: goldShimmer 4s ease-in-out infinite; }
+  .gold-trophy { display: inline-block; font-size: 18px; animation: trophyBob 2s ease-in-out infinite; }
+
+  /* TEAM WINNING — Stage 3: ULTIMATE (day 16 results day) */
+  .team-ultimate { position: relative; background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,180,0,0.08), rgba(255,215,0,0.2)); background-size: 200% 200%; border: 2px solid rgba(255,215,0,0.6) !important; animation: ultimatePulse 2.5s ease-in-out infinite, goldShimmer 5s ease-in-out infinite; overflow: hidden; padding: 16px 14px !important; }
+  .team-ultimate .ranking-name { font-size: 16px !important; font-weight: 800; }
+  .team-ultimate .ranking-points { color: var(--gold) !important; font-size: 24px !important; text-shadow: 0 0 12px rgba(255,215,0,0.5); }
+  .ultimate-trophy { display: inline-block; font-size: 24px; animation: trophyBob 1.5s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255,215,0,0.8)); }
+
+  /* Confetti for ultimate winner */
+  .confetti-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .confetti-overlay span { position: absolute; font-size: 14px; opacity: 0; animation: confettiFloat 2s ease-out infinite; }
+  .confetti-overlay span:nth-child(1) { left: 10%; animation-delay: 0s; }
+  .confetti-overlay span:nth-child(2) { left: 30%; animation-delay: 0.4s; }
+  .confetti-overlay span:nth-child(3) { left: 50%; animation-delay: 0.8s; }
+  .confetti-overlay span:nth-child(4) { left: 70%; animation-delay: 1.2s; }
+  .confetti-overlay span:nth-child(5) { left: 85%; animation-delay: 0.2s; }
+  .confetti-overlay span:nth-child(6) { left: 20%; animation-delay: 1.6s; }
+
+  /* Totals row clickable for admin */
+  tr.totals-row.clickable td { cursor: pointer; }
+  tr.totals-row.clickable:hover td { background: rgba(94,231,176,0.08); }
   .cell-empty { color: var(--text-muted); font-style: italic; opacity: 0.6; }
   .status-cell { padding: 12px 14px; cursor: pointer; }
   .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
@@ -766,7 +817,7 @@
         if (c.id === cols[0].id) return `<td><div class="cell">Totals</div></td>`;
         return `<td><div class="cell"></div></td>`;
       }).join('');
-      body.innerHTML += `<tr class="totals-row">${tc}<td></td></tr>`;
+      body.innerHTML += `<tr class="totals-row clickable" onclick="addRow()" title="Click to add a new row">${tc}<td></td></tr>`;
     }
   }
   // Permission: can the current user edit this column?
@@ -867,14 +918,34 @@
   function linkify(s) { s = String(s).trim(); if (/^https?:\/\//i.test(s)) return s; return 'https://' + s; }
   function formatDate(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
 
+  // Navigate to same column in next row after editing
+  function focusCellBelow(rowId, colId) {
+    setTimeout(() => {
+      const rows = getRows();
+      const idx = rows.findIndex(r => r.id === rowId);
+      if (idx < 0 || idx >= rows.length - 1) return;
+      const nextRow = rows[idx + 1];
+      const tr = document.querySelector(`tr[data-row="${nextRow.id}"]`);
+      if (!tr) return;
+      const cols = visibleColumns();
+      const colIdx = cols.findIndex(c => c.id === colId);
+      if (colIdx < 0) return;
+      const td = tr.children[colIdx];
+      if (!td) return;
+      const clickable = td.querySelector('[onclick]');
+      if (clickable) clickable.click();
+    }, 50);
+  }
+
   function editTextCell(e, rowId, colId) {
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const td = e.currentTarget.parentElement;
     td.innerHTML = `<input class="cell-input" type="text" value="${escapeAttr(r[colId]||'')}">`;
     const input = td.querySelector('input'); input.focus(); input.select();
-    const commit = async () => { r[colId] = input.value.trim(); renderCRM(); await saveData(); };
+    let goDown = false;
+    const commit = async () => { r[colId] = input.value.trim(); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
-    input.addEventListener('keydown', ev => { if (ev.key==='Enter') input.blur(); if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+    input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
   }
 
   function editLinksCell(e, rowId, colId) {
@@ -884,15 +955,11 @@
     td.innerHTML = `<textarea class="cell-input cell-textarea" rows="${Math.max(2, parseLinks(cur).length)}">${escapeHtml(cur)}</textarea>`;
     const input = td.querySelector('textarea'); input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
-    const commit = async () => {
-      // normalize: trim each line, drop blanks
-      r[colId] = parseLinks(input.value).join('\n');
-      renderCRM(); await saveData();
-    };
+    let goDown = false;
+    const commit = async () => { r[colId] = parseLinks(input.value).join('\n'); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => {
-      // Enter commits; Shift+Enter inserts a newline (default behavior)
-      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); goDown=true; input.blur(); }
       if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderCRM(); }
     });
   }
@@ -903,15 +970,17 @@
     let cur = field === 'revenue' ? (r.revenue!=null?r.revenue:'') : (r.points!=null?r.points:pointsFromRevenue(r.revenue));
     td.innerHTML = `<input class="cell-input" type="number" min="0" value="${escapeAttr(cur)}">`;
     const input = td.querySelector('input'); input.focus(); input.select();
+    let goDown = false;
     const commit = async () => {
       const v = input.value.trim();
       if (field === 'revenue') r.revenue = v === '' ? null : Number(v);
       else r.points = v === '' ? null : Number(v);
-      renderCRM(); await saveData();
+      renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, field);
     };
     input.addEventListener('blur', commit, { once:true });
-    input.addEventListener('keydown', ev => { if (ev.key==='Enter') input.blur(); if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+    input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
   }
+
 
   let openMenu = null;
   function closeMenus() { if (openMenu) { openMenu.remove(); openMenu = null; } document.querySelectorAll('.dropdown-menu, .mini-calendar').forEach(m => m.remove()); }
@@ -1046,6 +1115,17 @@
     }, true);
   }
 
+  // Three-stage celebration based on date in period:
+  //   1 = "simple gold" (early in month, days 16-8)
+  //   2 = "hidden" (days 9-15, leaderboard locked for editors anyway)
+  //   3 = "ultimate winner" (day 16, results day)
+  function winnerStage() {
+    const d = new Date().getDate();
+    if (d === 16) return 3;             // results day
+    if (d >= 9 && d <= 15) return 2;    // suspense week
+    return 1;                            // normal weeks
+  }
+
   function renderLeaderboard() {
     const container = document.getElementById('leaderboardContent');
     if (!isAdmin() && isLeaderboardLocked()) {
@@ -1064,30 +1144,103 @@
       editorPoints[r.editor] += pts;
       const t = editorTeam(r.editor); if (t) teamPoints[t.id] += pts;
     });
-    const teams = data.teams.map(t => ({ id:t.id, leader:t.leader, name:t.name, points:teamPoints[t.id]||0 })).sort((a,b) => b.points - a.points);
+
+    // Team colors
+    const teamColor = {
+      't_siam': { name:'siam', main:'#4a9eff', soft:'rgba(74,158,255,0.12)', border:'rgba(74,158,255,0.35)' },
+      't_riad': { name:'riad', main:'#ff9347', soft:'rgba(255,147,71,0.12)', border:'rgba(255,147,71,0.35)' }
+    };
+    const indivColor = { main:'#8aa3b0', soft:'rgba(138,163,176,0.12)', border:'rgba(138,163,176,0.3)' };
+
+    const teamsSorted = data.teams.map(t => ({ id:t.id, leader:t.leader, name:t.name, points:teamPoints[t.id]||0 })).sort((a,b) => b.points - a.points);
+
+    // Global editor ranking for the fun titles
+    const allEds = allEditors().map(e => ({ name:e, points:editorPoints[e]||0, team: editorTeam(e) })).sort((a,b) => b.points - a.points);
+    const totalEds = allEds.length;
+    const globalRank = {};
+    allEds.forEach((e, i) => globalRank[e.name] = i);
+
+    function funTag(name) {
+      const i = globalRank[name];
+      if (i == null) return '';
+      if (i === 0) return `<span class="rank-tag rank-giga"><span class="crown">👑</span>GIGA CHAD</span>`;
+      if (i === 1) return `<span class="rank-tag rank-aura">✨ AURA FARMER</span>`;
+      if (i === 2) return `<span class="rank-tag rank-sigma">💪 SIGMA</span>`;
+      if (totalEds > 3 && i === totalEds - 1) return `<span class="rank-tag rank-npc">🧱 NPC</span>`;
+      return '';
+    }
+
     let html = '<div class="rankings-grid">';
-    html += '<div class="ranking-block"><div class="ranking-title">Team Leader Ranking</div><div class="ranking-list">';
-    html += teams.map((t,i) => {
-      const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other';
-      return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(t.leader)} <span style="color:var(--text-muted);font-weight:500;font-size:11px">· ${escapeHtml(t.name)}</span></div></div><div class="ranking-points">${t.points}</div></div>`;
+    const stage = winnerStage();
+
+    // ============ TEAM RANKING ============
+    html += `<div class="ranking-block"><div class="ranking-title">Team Ranking</div><div class="ranking-list">`;
+    html += teamsSorted.map((t,i) => {
+      const isWinner = i === 0 && t.points > 0;
+      const tc = teamColor[t.id] || { main:'#5EE7B0', soft:'rgba(94,231,176,0.08)', border:'rgba(94,231,176,0.3)' };
+      let rowCls = 'ranking-row';
+      let extraStyle = `border-left:4px solid ${tc.main};`;
+      let badge = `<div class="rank-num other" style="background:${tc.soft};color:${tc.main};border-color:${tc.border}">${i+1}</div>`;
+      let confetti = '';
+      if (isWinner) {
+        if (stage === 3) {
+          // ULTIMATE WINNER (day 16)
+          rowCls += ' team-ultimate';
+          badge = `<div class="rank-num"><span class="ultimate-trophy">🏆</span></div>`;
+          extraStyle = '';
+          confetti = '<div class="confetti-overlay"><span>✨</span><span>🎉</span><span>⭐</span><span>✨</span><span>🎊</span><span>⭐</span></div>';
+        } else if (stage === 1) {
+          // SIMPLE GOLD (weeks 1-3)
+          rowCls += ' team-gold';
+          badge = `<div class="rank-num"><span class="gold-trophy">🏆</span></div>`;
+          extraStyle = '';
+        }
+      }
+      return `<div class="${rowCls}" style="${extraStyle}">${confetti}${badge}
+        <div class="ranking-name-wrap">
+          <div class="ranking-name">${escapeHtml(t.leader)} <span style="color:${tc.main};font-weight:600;font-size:11px">· ${escapeHtml(t.name)}</span></div>
+        </div>
+        <div class="ranking-points" style="${isWinner&&stage===3?'color:#ffd700;font-size:22px':''}">${t.points}</div>
+      </div>`;
     }).join('');
     html += '</div></div>';
-    html += '<div class="ranking-block"><div class="ranking-title">Editor Ranking</div><div class="ranking-list">';
-    data.teams.forEach(t => {
-      const editors = t.members.map(m => ({ name:m, points:editorPoints[m]||0, leader:m===t.leader })).sort((a,b) => b.points - a.points);
-      html += `<div class="ranking-section-label">${escapeHtml(t.name)}</div>`;
-      html += editors.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}${e.leader?'<span style="color:var(--green);font-size:10px;margin-left:6px">★ Leader</span>':''}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
-    });
-    const indivs = (data.individuals || []).map(m => ({ name:m, points:editorPoints[m]||0 })).sort((a,b) => b.points - a.points);
-    if (indivs.length) {
-      html += `<div class="ranking-section-label">Individuals</div>`;
-      html += indivs.map((e,i) => { const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other'; return `<div class="ranking-row"><div class="rank-num ${rc}">${i+1}</div><div class="ranking-name-wrap"><div class="ranking-name">${escapeHtml(e.name)}</div></div><div class="ranking-points">${e.points}</div></div>`; }).join('');
+
+    // ============ EDITOR RANKING ============
+    html += `<div class="ranking-block"><div class="ranking-title">Editor Ranking</div><div class="ranking-list">`;
+
+    function renderEditorGroup(label, editors, color) {
+      let s = `<div class="team-divider" style="color:${color.main};border-color:${color.border}"><span class="team-divider-dot" style="background:${color.main}"></span>${escapeHtml(label)}</div>`;
+      s += editors.map((e, i) => {
+        const tag = funTag(e.name);
+        const isGiga = globalRank[e.name] === 0;
+        const rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'other';
+        return `<div class="ranking-row" style="border-left:3px solid ${color.main};background:${color.soft}">
+          <div class="rank-num ${rc}">${i+1}</div>
+          <div class="ranking-name-wrap">
+            <div class="ranking-name">${isGiga?'<span class="crown">👑</span>':''}${escapeHtml(e.name)}${e.leader?'<span style="color:'+color.main+';font-size:10px;margin-left:6px">★</span>':''}${tag}</div>
+          </div>
+          <div class="ranking-points" style="color:${color.main}">${e.points}</div>
+        </div>`;
+      }).join('');
+      return s;
     }
+
+    data.teams.forEach(t => {
+      const eds = t.members.map(m => ({ name:m, points:editorPoints[m]||0, leader: m===t.leader })).sort((a,b) => b.points - a.points);
+      const c = teamColor[t.id] || { main:'#5EE7B0', soft:'rgba(94,231,176,0.08)', border:'rgba(94,231,176,0.3)' };
+      html += renderEditorGroup(t.name, eds, c);
+    });
+
+    const indivs = (data.individuals || []).map(m => ({ name:m, points:editorPoints[m]||0, leader:false })).sort((a,b) => b.points - a.points);
+    if (indivs.length) {
+      html += renderEditorGroup('Individuals', indivs, indivColor);
+    }
+
     html += '</div></div></div>';
+
     container.innerHTML = html;
   }
 
-  // ============ FINANCE ============
   function periodRevenue(pk) {
     return data.rows.filter(r => (r.period || currentPeriodKey()) === pk)
       .reduce((s,r) => s + (Number(r.revenue)||0), 0);
@@ -1602,6 +1755,14 @@
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
   function escapeAttr(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
   document.addEventListener('keydown', e => {
+    // If a confirm modal is open and focus isn't inside an input/textarea, Enter triggers the primary action
+    const confirmOpen = document.getElementById('confirmModal').classList.contains('show');
+    const tgt = e.target;
+    const inField = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT');
+    if (e.key === 'Enter' && confirmOpen && !inField) {
+      const btn = document.getElementById('confirmActionBtn');
+      if (btn && btn.style.display !== 'none') { e.preventDefault(); btn.click(); return; }
+    }
     if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none' && !document.querySelector('.modal-overlay.show')) login();
     if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show')); closeMenus(); }
   });
