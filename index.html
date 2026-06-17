@@ -1122,8 +1122,11 @@
   function periodRows() {
     const pk = activePeriodKey();
     let rows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
-    // Editors only see rows assigned to them
-    if (isEditor()) rows = rows.filter(r => r.editor === editorName());
+    // Editors only see rows assigned to them (case-insensitive match)
+    if (isEditor()) {
+      const me = editorName().toLowerCase();
+      rows = rows.filter(r => r.editor && r.editor.toLowerCase() === me);
+    }
     return rows;
   }
   function getRows() {
@@ -1147,7 +1150,10 @@
     const rows = getRows();
     const body = document.getElementById('crmBody');
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td colspan="${cols.length+1}" style="padding:40px;text-align:center;color:var(--text-muted)">No rows yet. Click "＋ Add row" below to start.</td></tr>`;
+      const msg = isEditor()
+        ? `No tasks assigned to you yet for this period. Your admin will add projects and assign them to you. They'll appear here automatically.`
+        : `No rows yet. Click "＋ Add row" below to start.`;
+      body.innerHTML = `<tr><td colspan="${cols.length+1}" style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6">${msg}</td></tr>`;
       return;
     }
     body.innerHTML = rows.map(r => {
@@ -1155,12 +1161,13 @@
       const del = isAdmin() ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : '';
       return `<tr data-row="${r.id}">${cells}${del}</tr>`;
     }).join('');
+    // Totals row
+    const prows = periodRows();
+    const doneRows = prows.filter(r => r.status === 'Done');
+    const totalPts = doneRows.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+    const pendingCount = prows.length - doneRows.length;
     if (isAdmin()) {
-      const prows = periodRows();
-      const doneRows = prows.filter(r => r.status === 'Done');
       const totalRev = doneRows.reduce((s,r) => s + (Number(r.revenue)||0), 0);
-      const totalPts = doneRows.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
-      const pendingCount = prows.length - doneRows.length;
       const totalLabel = pendingCount > 0 ? `Totals (Done only · ${pendingCount} pending)` : `Totals (Done only)`;
       const tc = cols.map(c => {
         if (c.id === 'revenue') return `<td><div class="cell total-revenue">$${totalRev.toLocaleString()}</div></td>`;
@@ -1169,6 +1176,15 @@
         return `<td><div class="cell"></div></td>`;
       }).join('');
       body.innerHTML += `<tr class="totals-row clickable" onclick="addRow()" title="Click to add a new row">${tc}<td></td></tr>`;
+    } else if (isEditor() && prows.length > 0) {
+      const doneCount = doneRows.length;
+      const statusLabel = `${doneCount} done${pendingCount > 0 ? ', ' + pendingCount + ' pending' : ''}`;
+      const tc = cols.map(c => {
+        if (c.id === 'points') return `<td><div class="cell total-points">${totalPts} pts</div></td>`;
+        if (c.id === cols[0].id) return `<td><div class="cell" style="color:var(--text-muted);font-size:12px">${statusLabel}</div></td>`;
+        return `<td><div class="cell"></div></td>`;
+      }).join('');
+      body.innerHTML += `<tr class="totals-row">${tc}</tr>`;
     }
   }
   // Permission: can the current user edit this column?
