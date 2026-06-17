@@ -559,9 +559,19 @@
     </div>
     <div id="adminLogin"><div class="form-group"><label>Password</label><input type="password" id="adminPass" placeholder="Enter admin password"></div></div>
     <div id="editorLogin" style="display:none">
-      <div class="form-group"><label>Editor Access Code</label><input type="password" id="editorCode" placeholder="Enter editor code"></div>
+      <div id="editorSignIn">
+        <div class="form-group"><label>Name</label><input type="text" id="editorName" placeholder="Your editor name" autocomplete="username"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="editorPass" placeholder="Enter password" autocomplete="current-password"></div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;text-align:center">New here? <a href="#" onclick="showEditorSignup();return false" style="color:var(--green);text-decoration:none;font-weight:600">Create an account</a></p>
+      </div>
+      <div id="editorSignUp" style="display:none">
+        <div class="form-group"><label>Your Name</label><input type="text" id="newEditorName" placeholder="Enter your full name"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="newEditorPass" placeholder="Choose a password"></div>
+        <div class="form-group"><label>Join a team</label><select id="newEditorTeam"></select></div>
+        <button class="btn btn-primary" onclick="createEditorAccount()" style="width:100%;padding:13px;margin-bottom:10px">Create Account & Sign In</button>
+        <p style="font-size:12px;color:var(--text-muted);text-align:center"><a href="#" onclick="showEditorLogin();return false" style="color:var(--green);text-decoration:none;font-weight:600">← Back to sign in</a></p>
+      </div>
     </div>
-    <label class="checkbox-row"><input type="checkbox" id="rememberMe" checked><span>Remember me on this device</span></label>
     <button class="btn btn-primary" onclick="login()" style="width:100%;padding:13px">Sign in</button>
     <div id="loginError" class="error-msg">Wrong credentials. Try again.</div>
   </div>
@@ -705,6 +715,7 @@
   const DEFAULT_DATA = {
     adminPass: 'admin123',
     editorPass: 'editor123',
+    editorAccounts: [],
     teams: [
       { id:'t_siam', name:'Team Siyam', leader:'Siyam', password:'siam123', members:['Siyam','Kiron','Rayhan'] },
       { id:'t_riad', name:'Team Fahim', leader:'Fahim', password:'riad123', members:['Fahim','Riyad','Mehraj'] }
@@ -732,6 +743,28 @@
     monthRates: {}
   };
   let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  // Undo/Redo system — snapshots entire data before each mutation
+  const MAX_UNDO = 30;
+  let undoStack = [], redoStack = [];
+  function pushUndo() {
+    undoStack.push(JSON.stringify(data));
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = []; // any new action clears redo
+  }
+  async function undo() {
+    if (!undoStack.length) { showToast('Nothing to undo'); return; }
+    redoStack.push(JSON.stringify(data));
+    data = JSON.parse(undoStack.pop());
+    renderAll(); await saveData();
+    showToast('Undone');
+  }
+  async function redo() {
+    if (!redoStack.length) { showToast('Nothing to redo'); return; }
+    undoStack.push(JSON.stringify(data));
+    data = JSON.parse(redoStack.pop());
+    renderAll(); await saveData();
+    showToast('Redone');
+  }
   let session = null, currentPage = 'crm';
   let isSaving = false, pendingSave = false;
   let selectedPeriod = null; // 'YYYY-MM' key representing the period START month (the 16th)
@@ -789,6 +822,19 @@
           data.individuals = [...new Set(data.individuals)];
           data.teamsV3 = true;
         }
+        // Auto-create individual editor accounts for all existing editors
+        if (!data.editorAccounts) data.editorAccounts = [];
+        if (!data.accountsV1) {
+          const existing = new Set((data.editorAccounts || []).map(a => a.name));
+          // Gather all editors from teams + individuals
+          const allEds = [];
+          (data.teams || []).forEach(t => (t.members || []).forEach(m => { if (!existing.has(m)) allEds.push(m); }));
+          (data.individuals || []).forEach(m => { if (!existing.has(m)) allEds.push(m); });
+          allEds.forEach(name => {
+            data.editorAccounts.push({ name: name, password: name.toLowerCase().replace(/\s+/g,'') + '123' });
+          });
+          data.accountsV1 = true;
+        }
         // One-time upgrade for editor-permissions + Notes column + multi-link cells
         if (!data.colsV2) {
           const editableIds = ['rawFile','status','frameio','finalVideo','notes'];
@@ -822,8 +868,18 @@
     } catch(e) { console.error('Save failed:', e); showError('Save failed: ' + (e.message||'unknown')); }
     finally { isSaving = false; if (pendingSave) { pendingSave = false; saveData(); } }
   }
-  function loadSession() { try { const r = localStorage.getItem(SESSION_KEY); if (r) session = JSON.parse(r); } catch(e) {} }
-  function saveSession() { const r = document.getElementById('rememberMe'); if (!r || r.checked) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
+  function loadSession() {
+    try {
+      const r = localStorage.getItem(SESSION_KEY);
+      if (r) {
+        const s = JSON.parse(r);
+        // Validate: editor sessions must have editorName (old sessions without it need re-login)
+        if (s.role === 'editor' && !s.editorName) { localStorage.removeItem(SESSION_KEY); return; }
+        session = s;
+      }
+    } catch(e) { localStorage.removeItem(SESSION_KEY); }
+  }
+  function saveSession() { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
   function clearSession() { localStorage.removeItem(SESSION_KEY); session = null; }
 
   let autoRefreshTimer = null;
@@ -886,34 +942,91 @@
   function isLeaderboardLocked() { const d = new Date().getDate(); return d >= 9 && d <= 15; }
   function daysUntilReveal() { return 16 - new Date().getDate(); }
 
-  function populateLoginDropdown() { /* no team dropdown anymore */ }
+  function populateLoginDropdown() {
+    // Populate the team selector for new editor signup
+    const sel = document.getElementById('newEditorTeam');
+    if (!sel) return;
+    sel.innerHTML = data.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (led by ${escapeHtml(t.leader)})</option>`).join('') +
+      `<option value="individual">Join as Individual</option>`;
+  }
   function switchRole(role) {
     document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`.role-tab[data-role="${role}"]`).classList.add('active');
     document.getElementById('adminLogin').style.display = role === 'admin' ? 'block' : 'none';
     document.getElementById('editorLogin').style.display = role === 'editor' ? 'block' : 'none';
     document.getElementById('loginError').classList.remove('show');
+    if (role === 'editor') { showEditorLogin(); populateLoginDropdown(); }
+  }
+  function showEditorSignup() {
+    document.getElementById('editorSignIn').style.display = 'none';
+    document.getElementById('editorSignUp').style.display = 'block';
+    document.getElementById('loginError').classList.remove('show');
+    populateLoginDropdown();
+  }
+  function showEditorLogin() {
+    document.getElementById('editorSignIn').style.display = 'block';
+    document.getElementById('editorSignUp').style.display = 'none';
+    document.getElementById('loginError').classList.remove('show');
   }
   function login() {
     const role = document.querySelector('.role-tab.active').dataset.role;
     const err = document.getElementById('loginError');
+    err.classList.remove('show');
     if (role === 'admin') {
-      if (document.getElementById('adminPass').value === data.adminPass) { session = { role:'admin' }; saveSession(); showApp(); }
-      else err.classList.add('show');
+      if (document.getElementById('adminPass').value === data.adminPass) {
+        session = { role:'admin' }; saveSession(); showApp();
+      } else { err.classList.add('show'); }
     } else {
-      const code = document.getElementById('editorCode').value;
-      if (code === (data.editorPass || 'editor123')) { session = { role:'editor' }; saveSession(); showApp(); }
-      else err.classList.add('show');
+      const name = (document.getElementById('editorName').value || '').trim();
+      const pass = document.getElementById('editorPass').value;
+      if (!name || !pass) { err.classList.add('show'); return; }
+      const acct = (data.editorAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase() && a.password === pass);
+      if (acct) {
+        session = { role:'editor', editorName: acct.name }; saveSession(); showApp();
+      } else { err.classList.add('show'); }
     }
+  }
+  async function createEditorAccount() {
+    const name = (document.getElementById('newEditorName').value || '').trim();
+    const pass = (document.getElementById('newEditorPass').value || '').trim();
+    const teamId = document.getElementById('newEditorTeam').value;
+    const err = document.getElementById('loginError');
+    err.classList.remove('show');
+    if (!name) { err.textContent = 'Please enter your name.'; err.classList.add('show'); return; }
+    if (!pass) { err.textContent = 'Please choose a password.'; err.classList.add('show'); return; }
+    if (pass.length < 3) { err.textContent = 'Password must be at least 3 characters.'; err.classList.add('show'); return; }
+    // Check if name already taken
+    if ((data.editorAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase())) {
+      err.textContent = 'That name is already taken.'; err.classList.add('show'); return;
+    }
+    // Create account
+    if (!data.editorAccounts) data.editorAccounts = [];
+    data.editorAccounts.push({ name: name, password: pass });
+    // Add to team or individuals
+    if (teamId === 'individual') {
+      if (!data.individuals) data.individuals = [];
+      if (!data.individuals.includes(name)) data.individuals.push(name);
+    } else {
+      const t = data.teams.find(x => x.id === teamId);
+      if (t && !t.members.includes(name)) t.members.push(name);
+    }
+    await saveData();
+    // Auto-login
+    session = { role:'editor', editorName: name }; saveSession(); showApp();
+    showToast('Welcome, ' + name + '! Account created.');
   }
   function logout() {
     stopAutoRefresh(); clearSession();
     document.getElementById('mainApp').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminPass').value = ''; const ec = document.getElementById('editorCode'); if (ec) ec.value = '';
+    document.getElementById('adminPass').value = '';
+    const en = document.getElementById('editorName'); if (en) en.value = '';
+    const ep = document.getElementById('editorPass'); if (ep) ep.value = '';
+    showEditorLogin();
   }
   function isAdmin() { return session && session.role === 'admin'; }
   function isEditor() { return session && session.role === 'editor'; }
+  function editorName() { return session && session.editorName ? session.editorName : ''; }
   function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
@@ -923,7 +1036,7 @@
       document.getElementById('addColBtn').style.display = 'inline-block';
       const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'flex';
     } else {
-      document.getElementById('userBadge').textContent = '✂️ Editor';
+      document.getElementById('userBadge').textContent = '✂️ ' + editorName();
       document.getElementById('financeTab').style.display = 'none';
       document.getElementById('addColBtn').style.display = 'none';
       const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'none';
@@ -950,8 +1063,14 @@
   function renderAll() {
     if (!selectedPeriod) selectedPeriod = currentPeriodKey();
     populateMonthSelectors();
+    // Dynamic section title for editors
+    const titleEl = document.querySelector('.section-title');
+    if (titleEl) titleEl.textContent = isEditor() ? 'My Projects' : 'Editor CRM';
     document.getElementById('crmPeriodLabel').textContent = 'Period: ' + periodLabel();
     document.getElementById('lbPeriodLabel').textContent = 'Period: ' + periodLabel();
+    // Hide editor filter for editors (they only see their own rows)
+    const efGroup = document.getElementById('crmFilterEditor');
+    if (efGroup) efGroup.closest('.toolbar-group').style.display = isAdmin() ? 'flex' : 'none';
     if (currentPage === 'crm') renderCRM();
     if (currentPage === 'leaderboard') renderLeaderboard();
     if (currentPage === 'finance') renderFinance();
@@ -1002,8 +1121,10 @@
   }
   function periodRows() {
     const pk = activePeriodKey();
-    // Rows without a period belong to the current period (legacy/safety)
-    return data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
+    let rows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
+    // Editors only see rows assigned to them
+    if (isEditor()) rows = rows.filter(r => r.editor === editorName());
+    return rows;
   }
   function getRows() {
     let rows = periodRows();
@@ -1173,7 +1294,7 @@
     td.innerHTML = `<input class="cell-input" type="text" value="${escapeAttr(r[colId]||'')}">`;
     const input = td.querySelector('input'); input.focus(); input.select();
     let goDown = false;
-    const commit = async () => { r[colId] = input.value.trim(); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
+    const commit = async () => { pushUndo(); r[colId] = input.value.trim(); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
   }
@@ -1186,7 +1307,7 @@
     const input = td.querySelector('textarea'); input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
     let goDown = false;
-    const commit = async () => { r[colId] = parseLinks(input.value).join('\n'); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
+    const commit = async () => { pushUndo(); r[colId] = parseLinks(input.value).join('\n'); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => {
       if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); goDown=true; input.blur(); }
@@ -1202,6 +1323,7 @@
     const input = td.querySelector('input'); input.focus(); input.select();
     let goDown = false;
     const commit = async () => {
+      pushUndo();
       const v = input.value.trim();
       if (field === 'revenue') r.revenue = v === '' ? null : Number(v);
       else r.points = v === '' ? null : Number(v);
@@ -1229,18 +1351,16 @@
       (isAdmin() ? `<div class="dropdown-divider"></div><div class="dropdown-add" onclick="newEditorWithTeam('${rowId}')">＋ Add new editor</div>` : '');
     document.body.appendChild(menu); positionMenu(menu, e); openMenu = menu;
   }
-  async function assignEditor(rowId, name) { const r = data.rows.find(x => x.id === rowId); if (!r) return; r.editor = name||null; closeMenus(); renderCRM(); await saveData(); }
+  async function assignEditor(rowId, name) { const r = data.rows.find(x => x.id === rowId); if (!r) return; pushUndo(); r.editor = name||null; closeMenus(); renderCRM(); await saveData(); }
   function newEditorWithTeam(rowId) {
     closeMenus();
     showPrompt('Add new editor', 'Editor name:', '', (name) => {
       name = name.trim(); if (!name) return;
       if (allEditors().includes(name)) { showToast('That name already exists'); return; }
-      // Now show team choice
-      showChoice('Add ' + name + ' to:', [
-        { label: 'Team Siyam', value: 't_siam' },
-        { label: 'Team Fahim', value: 't_riad' },
-        { label: 'Individual', value: 'individual' }
-      ], async (choice) => {
+      const teamOptions = data.teams.map(t => ({ label: escapeHtml(t.name), value: t.id }));
+      teamOptions.push({ label: 'Individual', value: 'individual' });
+      showChoice('Add ' + name + ' to:', teamOptions, async (choice) => {
+        pushUndo();
         if (choice === 'individual') {
           if (!data.individuals) data.individuals = [];
           data.individuals.push(name);
@@ -1248,9 +1368,14 @@
           const t = data.teams.find(x => x.id === choice);
           if (t) t.members.push(name);
         }
+        // Auto-create editor account
+        if (!data.editorAccounts) data.editorAccounts = [];
+        if (!(data.editorAccounts).find(a => a.name.toLowerCase() === name.toLowerCase())) {
+          data.editorAccounts.push({ name: name, password: name.toLowerCase().replace(/\s+/g,'') + '123' });
+        }
         const r = data.rows.find(x => x.id === rowId); if (r) r.editor = name;
         renderCRM(); populateEditorFilter(); await saveData();
-        showToast(`${name} added`);
+        showToast(`${name} added (password: ${name.toLowerCase().replace(/\s+/g,'')}123)`);
       });
     });
   }
@@ -1258,8 +1383,13 @@
     closeMenus();
     showPrompt('Rename editor', `Rename "${oldName}" to:`, oldName, async (newName) => {
       newName = newName.trim(); if (!newName || newName === oldName) return;
+      pushUndo();
       data.teams.forEach(t => { const i = t.members.indexOf(oldName); if (i>=0) t.members[i]=newName; if (t.leader===oldName) t.leader=newName; });
+      if (data.individuals) { const i = data.individuals.indexOf(oldName); if (i>=0) data.individuals[i]=newName; }
       data.rows.forEach(r => { if (r.editor === oldName) r.editor = newName; });
+      // Rename account too
+      const acct = (data.editorAccounts || []).find(a => a.name === oldName);
+      if (acct) acct.name = newName;
       renderAll(); await saveData(); showToast(`Renamed to ${newName}`);
     });
   }
@@ -1269,7 +1399,7 @@
     menu.innerHTML = STATUS_OPTIONS.map(o => `<div class="dropdown-item" onclick="setStatus('${rowId}','${o.value}')"><span class="status-pill ${o.cls}">${o.value}</span></div>`).join('');
     document.body.appendChild(menu); positionMenu(menu, e); openMenu = menu;
   }
-  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; r.status = val; closeMenus(); renderCRM(); await saveData(); }
+  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; pushUndo(); r.status = val; closeMenus(); renderCRM(); await saveData(); }
 
   let calState = { rowId:null, colId:null, viewYear:0, viewMonth:0 };
   function openCalendar(e, rowId, colId) {
@@ -1303,7 +1433,7 @@
     cal.innerHTML = html;
   }
   function calNav(dir) { calState.viewMonth += dir; if (calState.viewMonth<0) { calState.viewMonth=11; calState.viewYear--; } if (calState.viewMonth>11) { calState.viewMonth=0; calState.viewYear++; } renderCalendar(); }
-  async function pickDate(ds) { const r = data.rows.find(x => x.id === calState.rowId); if (!r) return; r[calState.colId] = ds||null; closeMenus(); renderCRM(); await saveData(); }
+  async function pickDate(ds) { const r = data.rows.find(x => x.id === calState.rowId); if (!r) return; pushUndo(); r[calState.colId] = ds||null; closeMenus(); renderCRM(); await saveData(); }
 
   function positionMenu(menu, e) {
     const rect = menu.getBoundingClientRect();
@@ -1317,20 +1447,20 @@
 
   async function addRow() {
     if (!isAdmin()) return;
-    data.rows.push({ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1000), period: activePeriodKey(), rawFile:'', editor:null, revenue:null, points:null, status:'Assigned', deadline:null, frameio:'', finalVideo:'', notes:'', createdAt:new Date().toISOString() });
+    pushUndo(); data.rows.push({ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1000), period: activePeriodKey(), rawFile:'', editor:null, revenue:null, points:null, status:'Assigned', deadline:null, frameio:'', finalVideo:'', notes:'', createdAt:new Date().toISOString() });
     renderCRM(); await saveData();
   }
   function deleteRow(rowId) {
     if (!isAdmin()) return;
     showConfirm('Delete row?', 'This row will be permanently deleted.', 'Delete', async () => {
-      data.rows = data.rows.filter(r => r.id !== rowId); renderCRM(); await saveData(); showToast('Row deleted');
+      pushUndo(); data.rows = data.rows.filter(r => r.id !== rowId); renderCRM(); await saveData(); showToast('Row deleted');
     }, true);
   }
   function addColumn() {
     if (!isAdmin()) return;
     showPrompt('Add column', 'Name your new column:', '', async (name) => {
       name = name.trim(); if (!name) return;
-      data.columns.push({ id:'col_'+Date.now(), label:name, type:'text', adminOnly:false, locked:false, editorEditable:true });
+      pushUndo(); data.columns.push({ id:'col_'+Date.now(), label:name, type:'text', adminOnly:false, locked:false, editorEditable:true });
       renderCRM(); await saveData(); showToast(`Column "${name}" added`);
     });
   }
@@ -1339,7 +1469,7 @@
     const col = data.columns.find(c => c.id === colId);
     if (!col || col.locked) { showToast('This column cannot be deleted'); return; }
     showConfirm('Delete column?', `"${col.label}" and all its data will be removed.`, 'Delete', async () => {
-      data.columns = data.columns.filter(c => c.id !== colId);
+      pushUndo(); data.columns = data.columns.filter(c => c.id !== colId);
       data.rows.forEach(r => delete r[colId]);
       renderCRM(); await saveData(); showToast('Column deleted');
     }, true);
@@ -1775,6 +1905,7 @@
     td.innerHTML = `<input class="exp-input" type="${type}" value="${escapeAttr(cur)}" step="any">`;
     const input = td.querySelector('input'); input.focus(); input.select();
     const commit = async () => {
+      pushUndo();
       const raw = input.value.trim();
       const num = raw === '' ? null : Number(raw);
       if (field === 'name' || field === 'notes') {
@@ -1930,7 +2061,6 @@
 
     let html = '';
     html += `<div class="team-section"><h4>Admin Password</h4><div class="password-row"><div class="pwd-field"><input type="password" id="adminPassInput" value="${escapeAttr(data.adminPass)}"><button type="button" class="pwd-toggle" onclick="togglePwd('adminPassInput',this)">👁</button></div><button onclick="changeAdminPass()">Update</button></div></div>`;
-    html += `<div class="team-section"><h4>Editor Password</h4><div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">All editors share this one code to log in</div><div class="password-row"><div class="pwd-field"><input type="password" id="editorPassInput" value="${escapeAttr(data.editorPass||'editor123')}"><button type="button" class="pwd-toggle" onclick="togglePwd('editorPassInput',this)">👁</button></div><button onclick="changeEditorPass()">Update</button></div></div>`;
 
     html += `<div class="team-section"><h4 style="margin-bottom:6px">Team & Member Management</h4>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Drag members between teams. Click ★ to make someone team leader. Click × to remove.</div>
@@ -1991,6 +2121,19 @@
     </div>`;
 
     html += `</div></div>`; // close dnd-arena + team-section
+
+    // Editor Accounts section
+    const accts = data.editorAccounts || [];
+    html += `<div class="team-section"><h4>Editor Accounts (${accts.length})</h4>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Each editor signs in with their name and password. You can reset any password here.</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${accts.map((a, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <span style="flex:1;font-size:13px;font-weight:600">${escapeHtml(a.name)}</span>
+          <input type="text" id="acctPass_${i}" value="${escapeAttr(a.password)}" style="width:120px;padding:6px 10px;font-size:12px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
+          <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:6px 10px" onclick="resetEditorPass(${i})">Save</button>
+        </div>`).join('')}
+      </div>
+    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
   }
 
@@ -2012,6 +2155,7 @@
     const name = _dragName, from = _dragFrom;
     _dragName = null; _dragFrom = null;
 
+    pushUndo();
     // Remove from source
     if (from === 'individual') {
       data.individuals = (data.individuals||[]).filter(m => m !== name);
@@ -2038,7 +2182,7 @@
 
   async function setLeader(teamId, name) {
     const t = data.teams.find(x => x.id === teamId); if (!t) return;
-    t.leader = name;
+    pushUndo(); t.leader = name;
     renderAdminSettings(); renderAll(); await saveData();
     showToast(`${name} is now leader of ${t.name}`);
   }
@@ -2054,11 +2198,18 @@
   }
 
   function renderTeamSettings() {
-    const tc = {
-      't_siam': '#4a9eff',
-      't_riad': '#ff9347'
-    };
-    document.getElementById('settingsBody').innerHTML = `<div class="team-section"><h4>Teams</h4>
+    const tc = { 't_siam': '#4a9eff', 't_riad': '#ff9347' };
+    const myName = editorName();
+    const myAcct = (data.editorAccounts || []).find(a => a.name === myName);
+    let html = '';
+    // My Account
+    html += `<div class="team-section"><h4>My Account</h4>
+      <div style="font-size:13px;color:var(--text);margin-bottom:10px">Signed in as <strong>${escapeHtml(myName)}</strong></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">CHANGE PASSWORD</div>
+      <div class="password-row"><div class="pwd-field"><input type="password" id="myPassInput" value="${myAcct ? escapeAttr(myAcct.password) : ''}"><button type="button" class="pwd-toggle" onclick="togglePwd('myPassInput',this)">👁</button></div><button onclick="changeMyPass()">Update</button></div>
+    </div>`;
+    // Teams overview
+    html += `<div class="team-section"><h4>Teams</h4>
       ${data.teams.map(t => `<div style="margin-bottom:14px">
         <div style="font-size:11px;color:${tc[t.id]||'var(--green)'};margin-bottom:6px;font-weight:700;display:flex;align-items:center;gap:6px"><span class="team-divider-dot" style="background:${tc[t.id]||'var(--green)'}"></span>${escapeHtml(t.name)}</div>
         <div class="members-list">${t.members.map(m=>`<span class="member-pill" style="border-color:${tc[t.id]||'var(--border)'}">${m===t.leader?'<span class="leader-mark" style="color:'+tc[t.id]+'">★</span>':''}${escapeHtml(m)}</span>`).join('')}</div>
@@ -2066,33 +2217,55 @@
       ${(data.individuals||[]).length ? `<div><div style="font-size:11px;color:#8aa3b0;margin-bottom:6px;font-weight:700">Individuals</div><div class="members-list">${(data.individuals||[]).map(m=>`<span class="member-pill">${escapeHtml(m)}</span>`).join('')}</div></div>` : ''}
       <p style="color:var(--text-muted);font-size:12px;margin-top:10px">Ask admin to change teams.</p>
     </div>`;
+    document.getElementById('settingsBody').innerHTML = html;
+  }
+  async function changeMyPass() {
+    const v = (document.getElementById('myPassInput').value || '').trim();
+    if (!v || v.length < 3) { showToast('Password must be at least 3 characters'); return; }
+    const acct = (data.editorAccounts || []).find(a => a.name === editorName());
+    if (!acct) { showToast('Account not found'); return; }
+    pushUndo(); acct.password = v; await saveData(); showToast('Password updated');
   }
 
   function togglePwd(id, btn) { const i = document.getElementById(id); if (i.type==='password') { i.type='text'; btn.textContent='🙈'; } else { i.type='password'; btn.textContent='👁'; } }
   async function changeAdminPass() { const v = document.getElementById('adminPassInput').value.trim(); if (!v) { showToast('Password cannot be empty'); return; } data.adminPass = v; await saveData(); showToast('Admin password updated'); }
   async function changeEditorPass() { const v = document.getElementById('editorPassInput').value.trim(); if (!v) { showToast('Password cannot be empty'); return; } data.editorPass = v; await saveData(); showToast('Editor password updated'); }
+  async function resetEditorPass(idx) {
+    const accts = data.editorAccounts || [];
+    if (!accts[idx]) return;
+    const v = document.getElementById('acctPass_'+idx).value.trim();
+    if (!v || v.length < 3) { showToast('Password must be at least 3 characters'); return; }
+    pushUndo(); accts[idx].password = v; await saveData(); showToast(accts[idx].name + "'s password updated");
+  }
+  // Auto-create an editor account if one doesn't exist
+  function ensureEditorAccount(name) {
+    if (!data.editorAccounts) data.editorAccounts = [];
+    if (!(data.editorAccounts).find(a => a.name.toLowerCase() === name.toLowerCase())) {
+      data.editorAccounts.push({ name: name, password: name.toLowerCase().replace(/\s+/g,'') + '123' });
+    }
+  }
   async function addMember(teamId) {
     const input = document.getElementById('newMember_'+teamId); const name = input.value.trim(); if (!name) return;
     const t = data.teams.find(x=>x.id===teamId); if (!t) return;
     if (allEditors().includes(name)) { showToast('That name already exists'); return; }
-    t.members.push(name); input.value=''; renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} added to ${t.name}`);
+    pushUndo(); t.members.push(name); ensureEditorAccount(name); input.value=''; renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} added to ${t.name} (password: ${name.toLowerCase().replace(/\s+/g,'')}123)`);
   }
   async function addIndividual() {
     const input = document.getElementById('newMember_individual'); const name = input.value.trim(); if (!name) return;
     if (allEditors().includes(name)) { showToast('That name already exists'); return; }
     if (!data.individuals) data.individuals = [];
-    data.individuals.push(name); input.value=''; renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} added as individual`);
+    pushUndo(); data.individuals.push(name); ensureEditorAccount(name); input.value=''; renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} added as individual (password: ${name.toLowerCase().replace(/\s+/g,'')}123)`);
   }
   function removeMember(teamId, name) {
     const t = data.teams.find(x=>x.id===teamId); if (!t) return;
     if (name === t.leader) { showToast('Make someone else leader before removing the current leader'); return; }
     showConfirm(`Remove ${name}?`, `${name} will be removed from ${t.name}.`, 'Remove', async () => {
-      t.members = t.members.filter(m => m !== name); renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} removed`);
+      pushUndo(); t.members = t.members.filter(m => m !== name); renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} removed`);
     }, true);
   }
   function removeIndividual(name) {
     showConfirm(`Remove ${name}?`, `${name} will be removed from individuals.`, 'Remove', async () => {
-      data.individuals = (data.individuals||[]).filter(m => m !== name); renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} removed`);
+      pushUndo(); data.individuals = (data.individuals||[]).filter(m => m !== name); renderAdminSettings(); renderAll(); await saveData(); showToast(`${name} removed`);
     }, true);
   }
 
@@ -2142,17 +2315,40 @@
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
   function escapeAttr(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
   document.addEventListener('keydown', e => {
-    // Never intercept browser/system shortcuts (Ctrl/Cmd+Z undo, Cmd+C copy, etc.)
-    if (e.metaKey || e.ctrlKey) return;
-    // If a confirm modal is open and focus isn't inside an input/textarea, Enter triggers the primary action
-    const confirmOpen = document.getElementById('confirmModal').classList.contains('show');
     const tgt = e.target;
     const inField = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT');
+    // App-level undo/redo when NOT inside a text field (browser handles undo inside fields)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !inField) {
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'y' && !inField) {
+      e.preventDefault(); redo(); return;
+    }
+    // Let all other Ctrl/Cmd combos through to browser (copy, paste, etc.)
+    if (e.metaKey || e.ctrlKey) return;
+    // Confirm modal: Enter triggers primary action
+    const confirmOpen = document.getElementById('confirmModal').classList.contains('show');
     if (e.key === 'Enter' && confirmOpen && !inField) {
       const btn = document.getElementById('confirmActionBtn');
       if (btn && btn.style.display !== 'none') { e.preventDefault(); btn.click(); return; }
     }
-    if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none' && !document.querySelector('.modal-overlay.show')) login();
+    if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none' && !document.querySelector('.modal-overlay.show')) {
+      // Only trigger login from password fields or when not in any input
+      const active = document.activeElement;
+      const isPasswordField = active && active.type === 'password';
+      const isInInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+      if (isPasswordField || !isInInput) login();
+      else if (isInInput) {
+        // If in name field, move focus to the next input (password)
+        const inputs = [...document.querySelectorAll('#loginScreen input:not([type=hidden])')]
+          .filter(i => i.offsetParent !== null); // only visible
+        const idx = inputs.indexOf(active);
+        if (idx >= 0 && idx < inputs.length - 1) inputs[idx + 1].focus();
+      }
+      return;
+    }
     if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show')); closeMenus(); }
   });
   // Roll over any non-Done rows from past periods to the current period.
