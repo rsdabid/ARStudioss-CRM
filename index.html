@@ -633,25 +633,14 @@
       <div id="editorSignIn">
         <div class="form-group"><label>Name</label><input type="text" id="editorName" placeholder="Your editor name" autocomplete="username"></div>
         <div class="form-group"><label>Password</label><input type="password" id="editorPass" placeholder="Enter password" autocomplete="current-password"></div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;text-align:center">New here? <a href="#" onclick="showEditorSignup();return false" style="color:var(--green);text-decoration:none;font-weight:600">Create an account</a></p>
-      </div>
-      <div id="editorSignUp" style="display:none">
-        <div class="form-group"><label>Your Name</label><input type="text" id="newEditorName" placeholder="Enter your full name"></div>
-        <div class="form-group"><label>Password</label><input type="password" id="newEditorPass" placeholder="Choose a password"></div>
-        <div class="form-group"><label>Join a team</label><select id="newEditorTeam"></select></div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:14px;text-align:center">Already have an account? <a href="#" onclick="showEditorLogin();return false" style="color:var(--green);text-decoration:none;font-weight:600">Sign in</a></p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:14px;text-align:center">Need an account? Ask the admin.</p>
       </div>
     </div>
     <div id="clientLogin">
       <div id="clientSignIn">
         <div class="form-group"><label>Brand / Company Name</label><input type="text" id="clientName" placeholder="Your brand name" autocomplete="username"></div>
         <div class="form-group"><label>Password</label><input type="password" id="clientPass" placeholder="Enter password" autocomplete="current-password"></div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:14px;text-align:center">New client? <a href="#" onclick="showClientSignup();return false" style="color:var(--green);text-decoration:none;font-weight:600">Create an account</a></p>
-      </div>
-      <div id="clientSignUp" style="display:none">
-        <div class="form-group"><label>Brand / Company Name</label><input type="text" id="newClientName" placeholder="Your brand or company name"></div>
-        <div class="form-group"><label>Choose a Password</label><input type="password" id="newClientPass" placeholder="At least 3 characters"></div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:14px;text-align:center">Already have an account? <a href="#" onclick="showClientLogin();return false" style="color:var(--green);text-decoration:none;font-weight:600">Sign in</a></p>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:14px;text-align:center">Need an account? Contact us to get set up.</p>
       </div>
     </div>
     <button class="btn btn-primary" id="mainSignInBtn" onclick="login()" style="width:100%;padding:13px">Sign in</button>
@@ -714,10 +703,11 @@
       </div>
       <button class="btn-tb" onclick="addColumn()" id="addColBtn">＋ Column</button>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" id="crmFlatWrap">
       <table class="crm"><thead><tr id="crmHead"></tr></thead><tbody id="crmBody"></tbody></table>
       <div class="add-row-bar" id="addRowBar" onclick="addRow()">＋ <span id="addRowLabel">Add row</span></div>
     </div>
+    <div id="crmGroupedWrap" style="display:none"></div>
   </div>
 
   <div class="page" id="page-clients">
@@ -1179,7 +1169,8 @@
         rawFile:'', editor:null, client: name,
         revenue:null, points:null, status:'Assigned',
         deadline:null, frameio:'', finalVideo:'', notes:'',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        createdBy: 'client:'+name
       });
     }
     await saveData();
@@ -1240,7 +1231,7 @@
       document.getElementById('financeTab').style.display = 'flex';
       document.getElementById('clientsTab').style.display = 'flex';
       document.getElementById('addColBtn').style.display = 'inline-block';
-      if (arb) arb.style.display = 'flex';
+      if (arb) arb.style.display = 'none'; // admin uses per-editor Add Row buttons in grouped view
     } else if (isEditor()) {
       document.getElementById('userBadge').textContent = '✂️ ' + editorName();
       document.getElementById('financeTab').style.display = 'none';
@@ -1377,6 +1368,22 @@
     return rows;
   }
   function renderCRM() {
+    const flat = document.getElementById('crmFlatWrap');
+    const grouped = document.getElementById('crmGroupedWrap');
+    if (isAdmin()) {
+      // Grouped view: one section per editor
+      flat.style.display = 'none';
+      grouped.style.display = 'block';
+      renderCRMGrouped();
+    } else {
+      // Flat view for editor and client
+      flat.style.display = '';
+      grouped.style.display = 'none';
+      renderCRMFlat();
+    }
+  }
+
+  function renderCRMFlat() {
     const cols = visibleColumns();
     document.getElementById('crmHead').innerHTML =
       cols.map(c => `<th>${escapeHtml(c.label)}${(!c.locked && isAdmin()) ? `<span class="col-menu" onclick="deleteColumn('${c.id}')" title="Delete column">✕</span>` : ''}</th>`).join('') +
@@ -1394,25 +1401,15 @@
     }
     body.innerHTML = rows.map(r => {
       const cells = cols.map(c => renderCell(r, c)).join('');
-      const del = isAdmin() ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : '';
+      const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : '<td></td>';
       return `<tr data-row="${r.id}">${cells}${del}</tr>`;
     }).join('');
-    // Totals row
+    // Totals row (editor only here, admin uses grouped view)
     const prows = periodRows();
     const doneRows = prows.filter(r => r.status === 'Done');
     const totalPts = doneRows.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
     const pendingCount = prows.length - doneRows.length;
-    if (isAdmin()) {
-      const totalRev = doneRows.reduce((s,r) => s + (Number(r.revenue)||0), 0);
-      const totalLabel = pendingCount > 0 ? `Totals (Done only · ${pendingCount} pending)` : `Totals (Done only)`;
-      const tc = cols.map(c => {
-        if (c.id === 'revenue') return `<td><div class="cell total-revenue">$${totalRev.toLocaleString()}</div></td>`;
-        if (c.id === 'points') return `<td><div class="cell total-points">${totalPts}</div></td>`;
-        if (c.id === cols[0].id) return `<td><div class="cell">${totalLabel}</div></td>`;
-        return `<td><div class="cell"></div></td>`;
-      }).join('');
-      body.innerHTML += `<tr class="totals-row clickable" onclick="addRow()" title="Click to add a new row">${tc}<td></td></tr>`;
-    } else if (isEditor() && prows.length > 0) {
+    if (isEditor() && prows.length > 0) {
       const doneCount = doneRows.length;
       const statusLabel = `${doneCount} done${pendingCount > 0 ? ', ' + pendingCount + ' pending' : ''}`;
       const tc = cols.map(c => {
@@ -1422,6 +1419,138 @@
       }).join('');
       body.innerHTML += `<tr class="totals-row">${tc}</tr>`;
     }
+  }
+
+  function renderCRMGrouped() {
+    const cols = visibleColumns();
+    const grouped = document.getElementById('crmGroupedWrap');
+    const pk = activePeriodKey();
+    const allRows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
+
+    // Apply filters
+    const fStatus = document.getElementById('crmFilterStatus').value;
+    const fEditor = document.getElementById('crmFilterEditor').value;
+    const filterRow = r => (!fStatus || r.status === fStatus) && (!fEditor || r.editor === fEditor);
+
+    // Order: each team's leader first, then members, then individuals, then unassigned bucket
+    const editorOrder = [];
+    (data.teams || []).forEach(t => {
+      if (t.leader && !editorOrder.includes(t.leader)) editorOrder.push(t.leader);
+      (t.members || []).forEach(m => { if (!editorOrder.includes(m)) editorOrder.push(m); });
+    });
+    (data.individuals || []).forEach(m => { if (!editorOrder.includes(m)) editorOrder.push(m); });
+
+    // Team color lookup for the avatar accent
+    const teamColor = {};
+    (data.teams || []).forEach(t => {
+      const color = t.id === 't_siam' ? '#4a9eff' : (t.id === 't_riad' ? '#ff9347' : 'var(--green)');
+      (t.members || []).forEach(m => teamColor[m] = color);
+    });
+    (data.individuals || []).forEach(m => teamColor[m] = '#8aa3b0');
+
+    let html = '';
+    editorOrder.forEach(name => {
+      const myRows = allRows.filter(r => r.editor === name && filterRow(r));
+      const doneRows = myRows.filter(r => r.status === 'Done');
+      const totalRev = doneRows.reduce((s,r) => s + (Number(r.revenue)||0), 0);
+      const totalPts = doneRows.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+      const pending = myRows.length - doneRows.length;
+      const color = teamColor[name] || 'var(--green)';
+
+      html += `<div class="client-section" style="margin-bottom:32px">
+        <div class="client-section-header">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="client-avatar" style="background:linear-gradient(135deg, ${color}, ${color}dd);color:#fff">${escapeHtml(name[0].toUpperCase())}</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">${escapeHtml(name)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myRows.length} project${myRows.length===1?'':'s'} · ${doneRows.length} done${pending?` · ${pending} pending`:''} · $${totalRev.toLocaleString()} · ${totalPts} pts</div>
+            </div>
+          </div>
+          <button class="btn-tb" onclick="addRowForEditor('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
+        </div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table class="crm">
+            <thead><tr>
+              ${cols.map(c => `<th>${escapeHtml(c.label)}${(!c.locked && isAdmin()) ? `<span class="col-menu" onclick="deleteColumn('${c.id}')" title="Delete column">✕</span>` : ''}</th>`).join('')}
+              <th style="width:40px"></th>
+            </tr></thead>
+            <tbody>`;
+
+      if (!myRows.length) {
+        html += `<tr><td colspan="${cols.length+1}" style="padding:18px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">No projects assigned this period</td></tr>`;
+      } else {
+        myRows.forEach(r => {
+          const cells = cols.map(c => renderCell(r, c)).join('');
+          const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : `<td style="text-align:center" title="Created by client — only the client can delete"><span style="opacity:0.25">🔒</span></td>`;
+          html += `<tr data-row="${r.id}">${cells}${del}</tr>`;
+        });
+      }
+      html += `</tbody></table></div></div>`;
+    });
+
+    // Unassigned bucket — rows with no editor (and no client either, since client rows have their own tab)
+    const unassigned = allRows.filter(r => !r.editor && !r.client && filterRow(r));
+    if (unassigned.length > 0) {
+      html += `<div class="client-section" style="margin-bottom:32px">
+        <div class="client-section-header">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="client-avatar" style="background:linear-gradient(135deg, #6b7480, #4a5158);color:#fff">?</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">Unassigned</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${unassigned.length} row${unassigned.length===1?'':'s'} waiting to be assigned to an editor</div>
+            </div>
+          </div>
+          <button class="btn-tb" onclick="addRow()" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
+        </div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table class="crm">
+            <thead><tr>
+              ${cols.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}
+              <th style="width:40px"></th>
+            </tr></thead>
+            <tbody>
+              ${unassigned.map(r => {
+                const cells = cols.map(c => renderCell(r, c)).join('');
+                const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : '<td></td>';
+                return `<tr data-row="${r.id}">${cells}${del}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    // Overall totals card at the bottom
+    const allFiltered = allRows.filter(filterRow);
+    const allDone = allFiltered.filter(r => r.status === 'Done');
+    const grandRev = allDone.reduce((s,r) => s + (Number(r.revenue)||0), 0);
+    const grandPts = allDone.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+    const grandPending = allFiltered.length - allDone.length;
+    html += `<div style="margin-top:8px;padding:18px 22px;background:rgba(13,31,24,0.4);border:1px solid var(--border);border-radius:var(--radius-md);display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="font-size:13px;color:var(--text-muted);font-weight:600;letter-spacing:0.02em">PERIOD TOTALS (Done only${grandPending?` · ${grandPending} pending`:''})</div>
+      <div style="display:flex;gap:24px">
+        <div><div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">REVENUE</div><div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--font-display)">$${grandRev.toLocaleString()}</div></div>
+        <div><div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">POINTS</div><div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-display)">${grandPts}</div></div>
+      </div>
+    </div>`;
+
+    grouped.innerHTML = html;
+  }
+
+  // Add a new row pre-assigned to a specific editor (used in grouped admin view)
+  async function addRowForEditor(editorName) {
+    if (!isAdmin()) return;
+    pushUndo();
+    data.rows.push({
+      id: 'r_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+      period: activePeriodKey(),
+      rawFile:'', editor: editorName, client: null,
+      revenue:null, points:null, status:'Assigned',
+      deadline:null, frameio:'', finalVideo:'', notes:'',
+      createdAt: new Date().toISOString(),
+      createdBy: 'admin'
+    });
+    renderCRM(); await saveData();
   }
   // Permission: can the current user edit this column?
   function canEdit(c) {
@@ -1707,15 +1836,33 @@
       client: isClient() ? clientName() : null,
       revenue:null, points:null, status:'Assigned',
       deadline:null, frameio:'', finalVideo:'', notes:'',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: isAdmin() ? 'admin' : (isEditor() ? 'editor:'+editorName() : 'client:'+clientName())
     };
     data.rows.push(newRow);
     renderCRM(); await saveData();
   }
+  function canDeleteRow(r) {
+    if (!r) return false;
+    // Client-created rows can only be deleted by that client
+    if (r.createdBy && r.createdBy.startsWith('client:')) {
+      const owner = r.createdBy.substring(7);
+      return isClient() && clientName() === owner;
+    }
+    // Editor-created rows can be deleted by that editor OR admin
+    if (r.createdBy && r.createdBy.startsWith('editor:')) {
+      const owner = r.createdBy.substring(7);
+      return isAdmin() || (isEditor() && editorName() === owner);
+    }
+    // Admin-created (or legacy rows without createdBy) — only admin can delete
+    return isAdmin();
+  }
   function deleteRow(rowId) {
-    if (!isAdmin()) return;
+    const r = data.rows.find(x => x.id === rowId);
+    if (!r) return;
+    if (!canDeleteRow(r)) { showToast('Only the row creator can delete this'); return; }
     showConfirm('Delete row?', 'This row will be permanently deleted.', 'Delete', async () => {
-      pushUndo(); data.rows = data.rows.filter(r => r.id !== rowId); renderCRM(); await saveData(); showToast('Row deleted');
+      pushUndo(); data.rows = data.rows.filter(x => x.id !== rowId); renderCRM(); if (currentPage === 'clients') renderClientsCRM(); await saveData(); showToast('Row deleted');
     }, true);
   }
   function addColumn() {
@@ -1902,68 +2049,76 @@
   function renderClientsCRM() {
     const container = document.getElementById('clientsContent');
     if (!container) return;
+    if (!isAdmin()) return;
     const pk = activePeriodKey();
     const allClientRows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk && r.client);
+    const clientList = data.clientAccounts || [];
 
-    // Admin view: grouped by client brand
-    if (isAdmin()) {
-      const clientList = data.clientAccounts || [];
-      if (!clientList.length) {
-        container.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-muted)">No client accounts yet. Clients can create their own account from the login page.</div>`;
-        return;
-      }
-
-      // Search bar
-      let html = `<div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
-        <input type="text" id="clientSearch" placeholder="Search client..." oninput="renderClientsCRM()"
-          style="flex:1;padding:10px 14px;background:rgba(13,31,24,0.5);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-ui);font-size:13px">
-      </div>`;
-
-      const search = (document.getElementById('clientSearch') || {}).value || '';
-
-      clientList.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).forEach(client => {
-        const clientRows = allClientRows.filter(r => r.client && r.client.toLowerCase() === client.name.toLowerCase());
-        const done = clientRows.filter(r => r.status === 'Done').length;
-
-        html += `<div class="client-section" style="margin-bottom:24px">
-          <div class="client-section-header">
-            <div style="display:flex;align-items:center;gap:10px">
-              <div class="client-avatar">${escapeHtml(client.name[0].toUpperCase())}</div>
-              <div>
-                <div style="font-size:15px;font-weight:700;color:var(--text)">${escapeHtml(client.name)}</div>
-                <div style="font-size:11px;color:var(--text-muted)">${clientRows.length} project${clientRows.length===1?'':'s'} · ${done} done</div>
-              </div>
-            </div>
-            <button class="btn-tb" onclick="addClientRow('${escapeAttr(client.name)}')" style="font-size:12px;padding:6px 12px">＋ Add Project</button>
-          </div>
-          <div class="table-wrap" style="margin-top:8px">
-            <table class="crm" style="min-width:600px">
-              <thead><tr>
-                <th>Raw Footage</th><th>Deadline</th><th>Status</th>
-                <th>Editor</th><th>Final Video</th><th>Notes</th><th></th>
-              </tr></thead>
-              <tbody>`;
-
-        if (!clientRows.length) {
-          html += `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No projects yet for this client.</td></tr>`;
-        } else {
-          clientRows.forEach(r => {
-            const links = v => v ? parseLinks(v).map(l => `<a href="${escapeAttr(linkify(l))}" target="_blank" class="cell-link">🔗 ${escapeHtml(truncate(l))}</a>`).join('<br>') : `<span class="cell-empty">—</span>`;
-            html += `<tr data-row="${r.id}">
-              <td><div class="cell links-cell" onclick="editLinksCell(event,'${r.id}','rawFile')">${links(r.rawFile) || '<span class="cell-empty">Add link</span>'}</div></td>
-              <td><div class="cell date-cell" onclick="openCalendar(event,'${r.id}','deadline')">${deadlineRing(r.deadline)}<span>${r.deadline ? formatDate(r.deadline) : '<span class="cell-empty">Set date</span>'}</span></div></td>
-              <td><div class="status-cell" onclick="openStatusDropdown(event,'${r.id}')"><span class="status-pill ${statusClass(r.status||'Assigned')}">${r.status||'Assigned'}</span></div></td>
-              <td><div class="editor-cell" onclick="openEditorDropdown(event,'${r.id}')">${r.editor ? `<span class="editor-pill"><span class="editor-avatar">${(r.editor[0]||'?').toUpperCase()}</span>${escapeHtml(r.editor)}</span>` : '<span class="cell-empty">Assign</span>'}</div></td>
-              <td><div class="cell links-cell" onclick="editLinksCell(event,'${r.id}','finalVideo')">${links(r.finalVideo) || '<span class="cell-empty">Add link</span>'}</div></td>
-              <td><div class="cell" onclick="editTextCell(event,'${r.id}','notes')">${r.notes ? escapeHtml(r.notes) : '<span class="cell-empty">—</span>'}</div></td>
-              <td><div class="cell"><button class="dnd-remove" onclick="deleteRow('${r.id}')" title="Delete">×</button></div></td>
-            </tr>`;
-          });
-        }
-        html += `</tbody></table></div></div>`;
-      });
-      container.innerHTML = html;
+    if (!clientList.length) {
+      container.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-muted)">No client accounts yet. Add one in Settings → Client Accounts.</div>`;
+      return;
     }
+
+    // Search bar
+    let html = `<div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+      <input type="text" id="clientSearch" placeholder="Search client..." oninput="onClientSearchInput()"
+        style="flex:1;padding:10px 14px;background:rgba(13,31,24,0.5);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-ui);font-size:13px">
+    </div>`;
+
+    const search = (document.getElementById('clientSearch') || {}).value || '';
+    // Use admin's master columns (Raw Footage, Editor, Revenue, Points, Status, Deadline, Frame.io, Final Video, Notes)
+    const cols = data.columns.filter(c => !c.adminOnly || isAdmin());
+
+    clientList.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).forEach(client => {
+      const clientRows = allClientRows.filter(r => r.client && r.client.toLowerCase() === client.name.toLowerCase());
+      const done = clientRows.filter(r => r.status === 'Done').length;
+      const totalRev = clientRows.filter(r => r.status === 'Done').reduce((s,r) => s + (Number(r.revenue)||0), 0);
+
+      html += `<div class="client-section" style="margin-bottom:32px">
+        <div class="client-section-header">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="client-avatar">${escapeHtml(client.name[0].toUpperCase())}</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">${escapeHtml(client.name)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${clientRows.length} project${clientRows.length===1?'':'s'} · ${done} done · $${totalRev.toLocaleString()} revenue</div>
+            </div>
+          </div>
+          <button class="btn-tb" onclick="addClientRow('${escapeAttr(client.name)}')" style="font-size:12px;padding:7px 14px">＋ Add Project</button>
+        </div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table class="crm">
+            <thead><tr>
+              ${cols.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}
+              <th></th>
+            </tr></thead>
+            <tbody>`;
+
+      if (!clientRows.length) {
+        html += `<tr><td colspan="${cols.length+1}" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No projects yet. Click "＋ Add Project" to create one.</td></tr>`;
+      } else {
+        clientRows.forEach(r => {
+          const cells = cols.map(c => renderCell(r, c)).join('');
+          const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : `<td style="text-align:center" title="Created by client — only the client can delete"><span style="opacity:0.25">🔒</span></td>`;
+          html += `<tr data-row="${r.id}">${cells}${del}</tr>`;
+        });
+      }
+      html += `</tbody></table></div></div>`;
+    });
+    container.innerHTML = html;
+  }
+  // Search preserves focus while typing
+  let clientSearchTimer = null;
+  function onClientSearchInput() {
+    clearTimeout(clientSearchTimer);
+    clientSearchTimer = setTimeout(() => {
+      const focused = document.activeElement && document.activeElement.id === 'clientSearch';
+      const val = document.getElementById('clientSearch').value;
+      renderClientsCRM();
+      if (focused) {
+        const s = document.getElementById('clientSearch');
+        if (s) { s.value = val; s.focus(); s.setSelectionRange(val.length, val.length); }
+      }
+    }, 100);
   }
 
   async function addClientRow(clientBrandName) {
@@ -1975,7 +2130,8 @@
       rawFile:'', editor:null, client: clientBrandName,
       revenue:null, points:null, status:'Assigned',
       deadline:null, frameio:'', finalVideo:'', notes:'',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: 'admin'
     });
     renderClientsCRM(); await saveData();
   }
