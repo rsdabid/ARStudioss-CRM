@@ -294,6 +294,13 @@
   .dl-ring { flex-shrink: 0; display: inline-flex; align-items: center; }
   .dl-ring svg { display: block; }
 
+  /* Client CRM */
+  .client-section-header { display:flex;align-items:center;justify-content:space-between;padding:12px 4px;margin-bottom:2px; }
+  .client-avatar { width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--green-deep),var(--green));color:#052e20;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+
+  /* Client view of their own CRM */
+  .client-row { border-bottom:1px solid rgba(28,56,43,0.4); }
+
   /* Remove number input spinners globally for rate inputs */
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rate-input { -moz-appearance: textfield; }
@@ -574,6 +581,19 @@
         <p style="font-size:12px;color:var(--text-muted);text-align:center"><a href="#" onclick="showEditorLogin();return false" style="color:var(--green);text-decoration:none;font-weight:600">← Back to sign in</a></p>
       </div>
     </div>
+    <div id="clientLogin" style="display:none">
+      <div id="clientSignIn">
+        <div class="form-group"><label>Brand / Company Name</label><input type="text" id="clientName" placeholder="Your brand name" autocomplete="username"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="clientPass" placeholder="Enter password" autocomplete="current-password"></div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;text-align:center">New client? <a href="#" onclick="showClientSignup();return false" style="color:var(--green);text-decoration:none;font-weight:600">Create an account</a></p>
+      </div>
+      <div id="clientSignUp" style="display:none">
+        <div class="form-group"><label>Brand / Company Name</label><input type="text" id="newClientName" placeholder="Your brand or company name"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="newClientPass" placeholder="Choose a password"></div>
+        <button class="btn btn-primary" onclick="createClientAccount()" style="width:100%;padding:13px;margin-bottom:10px">Create Account & Sign In</button>
+        <p style="font-size:12px;color:var(--text-muted);text-align:center"><a href="#" onclick="showClientLogin();return false" style="color:var(--green);text-decoration:none;font-weight:600">← Back to sign in</a></p>
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="login()" style="width:100%;padding:13px">Sign in</button>
     <div id="loginError" class="error-msg">Wrong credentials. Try again.</div>
   </div>
@@ -589,7 +609,8 @@
     </div>
   </div>
   <div class="nav-tabs" id="navTabs">
-    <div class="nav-tab active" data-page="crm" onclick="switchPage('crm')">📋 CRM</div>
+    <div class="nav-tab active" data-page="crm" onclick="switchPage('crm')">📋 Editors</div>
+    <div class="nav-tab" data-page="clients" onclick="switchPage('clients')" id="clientsTab" style="display:none">🤝 Clients</div>
     <div class="nav-tab" data-page="leaderboard" onclick="switchPage('leaderboard')">🏆 Leaderboard</div>
     <div class="nav-tab" data-page="finance" onclick="switchPage('finance')" id="financeTab">💰 Finance</div>
   </div>
@@ -635,8 +656,15 @@
     </div>
     <div class="table-wrap">
       <table class="crm"><thead><tr id="crmHead"></tr></thead><tbody id="crmBody"></tbody></table>
-      <div class="add-row-bar" id="addRowBar" onclick="addRow()">＋ Add row</div>
+      <div class="add-row-bar" id="addRowBar" onclick="addRow()">＋ <span id="addRowLabel">Add row</span></div>
     </div>
+  </div>
+
+  <div class="page" id="page-clients">
+    <div class="section-header">
+      <div><div class="section-title" id="clientsTitle">Clients</div><div class="section-sub" id="clientsSub"></div></div>
+    </div>
+    <div id="clientsContent"></div>
   </div>
 
   <div class="page" id="page-leaderboard">
@@ -981,8 +1009,20 @@
     document.querySelector(`.role-tab[data-role="${role}"]`).classList.add('active');
     document.getElementById('adminLogin').style.display = role === 'admin' ? 'block' : 'none';
     document.getElementById('editorLogin').style.display = role === 'editor' ? 'block' : 'none';
+    document.getElementById('clientLogin').style.display = role === 'client' ? 'block' : 'none';
     document.getElementById('loginError').classList.remove('show');
     if (role === 'editor') { showEditorLogin(); populateLoginDropdown(); }
+    if (role === 'client') showClientLogin();
+  }
+  function showClientSignup() {
+    document.getElementById('clientSignIn').style.display = 'none';
+    document.getElementById('clientSignUp').style.display = 'block';
+    document.getElementById('loginError').classList.remove('show');
+  }
+  function showClientLogin() {
+    if (document.getElementById('clientSignIn')) document.getElementById('clientSignIn').style.display = 'block';
+    if (document.getElementById('clientSignUp')) document.getElementById('clientSignUp').style.display = 'none';
+    document.getElementById('loginError').classList.remove('show');
   }
   function showEditorSignup() {
     document.getElementById('editorSignIn').style.display = 'none';
@@ -1003,15 +1043,37 @@
       if (document.getElementById('adminPass').value === data.adminPass) {
         session = { role:'admin' }; saveSession(); showApp();
       } else { err.classList.add('show'); }
-    } else {
+    } else if (role === 'editor') {
       const name = (document.getElementById('editorName').value || '').trim();
       const pass = document.getElementById('editorPass').value;
       if (!name || !pass) { err.classList.add('show'); return; }
       const acct = (data.editorAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase() && a.password === pass);
-      if (acct) {
-        session = { role:'editor', editorName: acct.name }; saveSession(); showApp();
-      } else { err.classList.add('show'); }
+      if (acct) { session = { role:'editor', editorName: acct.name }; saveSession(); showApp(); }
+      else { err.classList.add('show'); }
+    } else {
+      const name = (document.getElementById('clientName').value || '').trim();
+      const pass = document.getElementById('clientPass').value;
+      if (!name || !pass) { err.classList.add('show'); return; }
+      const acct = (data.clientAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase() && a.password === pass);
+      if (acct) { session = { role:'client', clientName: acct.name }; saveSession(); showApp(); }
+      else { err.classList.add('show'); }
     }
+  }
+  async function createClientAccount() {
+    const name = (document.getElementById('newClientName').value || '').trim();
+    const pass = (document.getElementById('newClientPass').value || '').trim();
+    const err = document.getElementById('loginError');
+    err.classList.remove('show');
+    if (!name) { err.textContent = 'Please enter your brand name.'; err.classList.add('show'); return; }
+    if (!pass || pass.length < 3) { err.textContent = 'Password must be at least 3 characters.'; err.classList.add('show'); return; }
+    if ((data.clientAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase())) {
+      err.textContent = 'That brand name is already taken.'; err.classList.add('show'); return;
+    }
+    if (!data.clientAccounts) data.clientAccounts = [];
+    data.clientAccounts.push({ name: name, password: pass });
+    await saveData();
+    session = { role:'client', clientName: name }; saveSession(); showApp();
+    showToast('Welcome, ' + name + '! Your account is ready.');
   }
   async function createEditorAccount() {
     const name = (document.getElementById('newEditorName').value || '').trim();
@@ -1049,30 +1111,48 @@
     document.getElementById('adminPass').value = '';
     const en = document.getElementById('editorName'); if (en) en.value = '';
     const ep = document.getElementById('editorPass'); if (ep) ep.value = '';
-    showEditorLogin();
+    const cn = document.getElementById('clientName'); if (cn) cn.value = '';
+    const cp = document.getElementById('clientPass'); if (cp) cp.value = '';
+    showEditorLogin(); showClientLogin();
   }
   function isAdmin() { return session && session.role === 'admin'; }
   function isEditor() { return session && session.role === 'editor'; }
+  function isClient() { return session && session.role === 'client'; }
   function editorName() { return session && session.editorName ? session.editorName : ''; }
+  function clientName() { return session && session.clientName ? session.clientName : ''; }
   function showApp() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
+    const arb = document.getElementById('addRowBar');
     if (isAdmin()) {
       document.getElementById('userBadge').textContent = '⚡ Admin';
       document.getElementById('financeTab').style.display = 'flex';
+      document.getElementById('clientsTab').style.display = 'flex';
       document.getElementById('addColBtn').style.display = 'inline-block';
-      const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'flex';
-    } else {
+      if (arb) arb.style.display = 'flex';
+    } else if (isEditor()) {
       document.getElementById('userBadge').textContent = '✂️ ' + editorName();
       document.getElementById('financeTab').style.display = 'none';
+      document.getElementById('clientsTab').style.display = 'none';
       document.getElementById('addColBtn').style.display = 'none';
-      const arb = document.getElementById('addRowBar'); if (arb) arb.style.display = 'none';
-      if (currentPage === 'finance') switchPage('crm');
+      if (arb) arb.style.display = 'flex'; // editors can add rows
+      if (currentPage === 'finance' || currentPage === 'clients') switchPage('crm');
+    } else {
+      // client
+      document.getElementById('userBadge').textContent = '🤝 ' + clientName();
+      document.getElementById('financeTab').style.display = 'none';
+      document.getElementById('clientsTab').style.display = 'none';
+      document.getElementById('addColBtn').style.display = 'none';
+      if (arb) { arb.style.display = 'flex'; }
+      const addLabel = document.getElementById('addRowLabel');
+      if (addLabel) addLabel.textContent = 'Add project';
+      switchPage('crm');
     }
     renderAll(); startAutoRefresh();
   }
   function switchPage(page) {
     if (page === 'finance' && !isAdmin()) return;
+    if (page === 'clients' && !isAdmin()) return;
     currentPage = page;
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
@@ -1090,17 +1170,22 @@
   function renderAll() {
     if (!selectedPeriod) selectedPeriod = currentPeriodKey();
     populateMonthSelectors();
-    // Dynamic section title for editors
+    // Dynamic section title
     const titleEl = document.querySelector('.section-title');
-    if (titleEl) titleEl.textContent = isEditor() ? 'My Projects' : 'Editor CRM';
+    if (titleEl) {
+      if (isClient()) titleEl.textContent = clientName() + ' Projects';
+      else if (isEditor()) titleEl.textContent = 'My Projects';
+      else titleEl.textContent = 'Editors';
+    }
     document.getElementById('crmPeriodLabel').textContent = 'Period: ' + periodLabel();
     document.getElementById('lbPeriodLabel').textContent = 'Period: ' + periodLabel();
-    // Hide editor filter for editors (they only see their own rows)
+    // Hide editor filter for non-admins
     const efGroup = document.getElementById('crmFilterEditor');
     if (efGroup) efGroup.closest('.toolbar-group').style.display = isAdmin() ? 'flex' : 'none';
     if (currentPage === 'crm') renderCRM();
     if (currentPage === 'leaderboard') renderLeaderboard();
     if (currentPage === 'finance') renderFinance();
+    if (currentPage === 'clients') renderClientsCRM();
     populateEditorFilter();
   }
 
@@ -1139,7 +1224,10 @@
     if (currentPage === 'crm') renderCRM();
     if (currentPage === 'finance') renderFinance();
   }
-  function visibleColumns() { return data.columns.filter(c => !c.adminOnly || isAdmin()); }
+  function visibleColumns() {
+    if (isClient()) return CLIENT_COLUMNS; // clients see their 5 fixed columns
+    return data.columns.filter(c => !c.adminOnly || isAdmin());
+  }
   function populateEditorFilter() {
     const sel = document.getElementById('crmFilterEditor'); if (!sel) return;
     const cur = sel.value;
@@ -1149,10 +1237,13 @@
   function periodRows() {
     const pk = activePeriodKey();
     let rows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
-    // Editors only see rows assigned to them (case-insensitive match)
     if (isEditor()) {
       const me = editorName().toLowerCase();
       rows = rows.filter(r => r.editor && r.editor.toLowerCase() === me);
+    }
+    if (isClient()) {
+      const me = clientName().toLowerCase();
+      rows = rows.filter(r => r.client && r.client.toLowerCase() === me);
     }
     return rows;
   }
@@ -1178,7 +1269,9 @@
     const body = document.getElementById('crmBody');
     if (rows.length === 0) {
       const msg = isEditor()
-        ? `No tasks assigned to you yet for this period. Your admin will add projects and assign them to you. They'll appear here automatically.`
+        ? `No tasks assigned to you yet for this period. Your admin will add projects and assign them to you.`
+        : isClient()
+        ? `No projects yet. Click "＋ Add project" below to submit your first project.`
         : `No rows yet. Click "＋ Add row" below to start.`;
       body.innerHTML = `<tr><td colspan="${cols.length+1}" style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6">${msg}</td></tr>`;
       return;
@@ -1217,8 +1310,8 @@
   // Permission: can the current user edit this column?
   function canEdit(c) {
     if (isAdmin()) return true;
-    // editor: only columns flagged editorEditable
-    return !!c.editorEditable;
+    if (isClient()) return !!c.editable; // CLIENT_COLUMNS have editable flag
+    return !!c.editorEditable; // editors
   }
 
   // Deadline ring: returns SVG showing time remaining (fills + reddens as deadline nears)
@@ -1489,8 +1582,18 @@
   document.addEventListener('click', e => { if (openMenu && !openMenu.contains(e.target)) closeMenus(); });
 
   async function addRow() {
-    if (!isAdmin()) return;
-    pushUndo(); data.rows.push({ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1000), period: activePeriodKey(), rawFile:'', editor:null, revenue:null, points:null, status:'Assigned', deadline:null, frameio:'', finalVideo:'', notes:'', createdAt:new Date().toISOString() });
+    if (!isAdmin() && !isEditor() && !isClient()) return;
+    pushUndo();
+    const newRow = {
+      id: 'r_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+      period: activePeriodKey(),
+      rawFile:'', editor: isEditor() ? editorName() : null,
+      client: isClient() ? clientName() : null,
+      revenue:null, points:null, status:'Assigned',
+      deadline:null, frameio:'', finalVideo:'', notes:'',
+      createdAt: new Date().toISOString()
+    };
+    data.rows.push(newRow);
     renderCRM(); await saveData();
   }
   function deleteRow(rowId) {
@@ -1646,6 +1749,99 @@
 
   // Revenue and points only count when status === 'Done'
   function isDone(r) { return r && r.status === 'Done'; }
+
+  // ============ CLIENT CRM ============
+  // Columns visible to clients (no editor, no revenue, no points, no frameio)
+  const CLIENT_COLUMNS = [
+    { id:'rawFile', label:'Raw Footage', type:'links', editable:true },
+    { id:'deadline', label:'Deadline', type:'date', editable:true },
+    { id:'status', label:'Status', type:'status', editable:false },
+    { id:'finalVideo', label:'Final Video', type:'links', editable:false },
+    { id:'notes', label:'Notes', type:'text', editable:true }
+  ];
+
+  function renderClientsCRM() {
+    const container = document.getElementById('clientsContent');
+    if (!container) return;
+    const pk = activePeriodKey();
+    const allClientRows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk && r.client);
+
+    // Admin view: grouped by client brand
+    if (isAdmin()) {
+      const clientList = data.clientAccounts || [];
+      if (!clientList.length) {
+        container.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-muted)">No client accounts yet. Clients can create their own account from the login page.</div>`;
+        return;
+      }
+
+      // Search bar
+      let html = `<div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+        <input type="text" id="clientSearch" placeholder="Search client..." oninput="renderClientsCRM()"
+          style="flex:1;padding:10px 14px;background:rgba(13,31,24,0.5);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-ui);font-size:13px">
+      </div>`;
+
+      const search = (document.getElementById('clientSearch') || {}).value || '';
+
+      clientList.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).forEach(client => {
+        const clientRows = allClientRows.filter(r => r.client && r.client.toLowerCase() === client.name.toLowerCase());
+        const done = clientRows.filter(r => r.status === 'Done').length;
+
+        html += `<div class="client-section" style="margin-bottom:24px">
+          <div class="client-section-header">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="client-avatar">${escapeHtml(client.name[0].toUpperCase())}</div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text)">${escapeHtml(client.name)}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${clientRows.length} project${clientRows.length===1?'':'s'} · ${done} done</div>
+              </div>
+            </div>
+            <button class="btn-tb" onclick="addClientRow('${escapeAttr(client.name)}')" style="font-size:12px;padding:6px 12px">＋ Add Project</button>
+          </div>
+          <div class="table-wrap" style="margin-top:8px">
+            <table class="crm" style="min-width:600px">
+              <thead><tr>
+                <th>Raw Footage</th><th>Deadline</th><th>Status</th>
+                <th>Editor</th><th>Final Video</th><th>Notes</th><th></th>
+              </tr></thead>
+              <tbody>`;
+
+        if (!clientRows.length) {
+          html += `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No projects yet for this client.</td></tr>`;
+        } else {
+          clientRows.forEach(r => {
+            const links = v => v ? parseLinks(v).map(l => `<a href="${escapeAttr(linkify(l))}" target="_blank" class="cell-link">🔗 ${escapeHtml(truncate(l))}</a>`).join('<br>') : `<span class="cell-empty">—</span>`;
+            html += `<tr data-row="${r.id}">
+              <td><div class="cell links-cell" onclick="editLinksCell(event,'${r.id}','rawFile')">${links(r.rawFile) || '<span class="cell-empty">Add link</span>'}</div></td>
+              <td><div class="cell date-cell" onclick="openCalendar(event,'${r.id}','deadline')">${deadlineRing(r.deadline)}<span>${r.deadline ? formatDate(r.deadline) : '<span class="cell-empty">Set date</span>'}</span></div></td>
+              <td><div class="status-cell" onclick="openStatusDropdown(event,'${r.id}')"><span class="status-pill ${statusClass(r.status||'Assigned')}">${r.status||'Assigned'}</span></div></td>
+              <td><div class="editor-cell" onclick="openEditorDropdown(event,'${r.id}')">${r.editor ? `<span class="editor-pill"><span class="editor-avatar">${(r.editor[0]||'?').toUpperCase()}</span>${escapeHtml(r.editor)}</span>` : '<span class="cell-empty">Assign</span>'}</div></td>
+              <td><div class="cell links-cell" onclick="editLinksCell(event,'${r.id}','finalVideo')">${links(r.finalVideo) || '<span class="cell-empty">Add link</span>'}</div></td>
+              <td><div class="cell" onclick="editTextCell(event,'${r.id}','notes')">${r.notes ? escapeHtml(r.notes) : '<span class="cell-empty">—</span>'}</div></td>
+              <td><div class="cell"><button class="dnd-remove" onclick="deleteRow('${r.id}')" title="Delete">×</button></div></td>
+            </tr>`;
+          });
+        }
+        html += `</tbody></table></div></div>`;
+      });
+      container.innerHTML = html;
+    }
+  }
+
+  async function addClientRow(clientBrandName) {
+    if (!isAdmin()) return;
+    pushUndo();
+    data.rows.push({
+      id: 'r_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+      period: activePeriodKey(),
+      rawFile:'', editor:null, client: clientBrandName,
+      revenue:null, points:null, status:'Assigned',
+      deadline:null, frameio:'', finalVideo:'', notes:'',
+      createdAt: new Date().toISOString()
+    });
+    renderClientsCRM(); await saveData();
+  }
+
+
   function periodRevenue(pk) {
     return data.rows.filter(r => (r.period || currentPeriodKey()) === pk && isDone(r))
       .reduce((s,r) => s + (Number(r.revenue)||0), 0);
