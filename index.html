@@ -2689,15 +2689,19 @@
     // Client Accounts section
     const clients = data.clientAccounts || [];
     html += `<div class="team-section"><h4>Client Accounts (${clients.length})</h4>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Each client signs in with their brand name and password. You can reset any password or delete an account here.</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Each client signs in with their brand name and password.</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${clients.length === 0 ? '<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:8px">No clients yet. They sign up from the Client tab on the login page.</div>' : ''}
         ${clients.map((c, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:var(--radius-sm)">
           <span style="flex:1;font-size:13px;font-weight:600">${escapeHtml(c.name)}</span>
           <input type="text" id="clientPass_${i}" value="${escapeAttr(c.password)}" style="width:120px;padding:6px 10px;font-size:12px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
           <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:6px 10px" onclick="resetClientPass(${i})">Save</button>
           <button class="dnd-remove" title="Delete account" onclick="deleteClientAccount(${i})" style="font-size:18px">×</button>
         </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="newClientNameInput" placeholder="Brand name" style="flex:1;padding:8px 12px;font-size:13px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
+        <input type="text" id="newClientPassInput" placeholder="Password" style="width:120px;padding:8px 12px;font-size:13px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
+        <button class="btn-tb" onclick="addClientFromSettings()" style="font-size:12px;padding:8px 14px;white-space:nowrap">＋ Add Client</button>
       </div>
     </div>`;
     document.getElementById('settingsBody').innerHTML = html;
@@ -2832,6 +2836,33 @@
       renderAdminSettings(); renderAll(); await saveData();
       showToast(`${name} deleted`);
     }, true);
+  }
+  async function addClientFromSettings() {
+    const nameInput = document.getElementById('newClientNameInput');
+    const passInput = document.getElementById('newClientPassInput');
+    const name = (nameInput.value || '').trim();
+    const pass = (passInput.value || '').trim();
+    if (!name) { showToast('Enter a brand name'); return; }
+    if (!pass || pass.length < 3) { showToast('Password must be at least 3 characters'); return; }
+    if ((data.clientAccounts || []).find(a => a.name.toLowerCase() === name.toLowerCase())) {
+      showToast('That brand name already exists'); return;
+    }
+    pushUndo();
+    if (!data.clientAccounts) data.clientAccounts = [];
+    data.clientAccounts.push({ name: name, password: pass, columns: JSON.parse(JSON.stringify(CLIENT_COLUMNS)) });
+    // Auto-create 5 empty rows
+    const pk = activePeriodKey();
+    for (let i = 0; i < 5; i++) {
+      data.rows.push({
+        id: 'r_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*1000),
+        period: pk, rawFile:'', editor:null, client: name,
+        revenue:null, points:null, status:'Assigned',
+        deadline:null, frameio:'', finalVideo:'', notes:'',
+        createdAt: new Date().toISOString(), createdBy: 'client:'+name
+      });
+    }
+    renderAdminSettings(); renderAll(); await saveData();
+    showToast(`${name} added with password: ${pass}`);
   }
   function deleteClientAccount(idx) {
     const clients = data.clientAccounts || [];
