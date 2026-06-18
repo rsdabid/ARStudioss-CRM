@@ -1076,53 +1076,21 @@
     document.getElementById('loginError').classList.remove('show');
     if (role === 'editor') { showEditorLogin(); populateLoginDropdown(); }
     if (role === 'client') showClientLogin();
-    if (role === 'admin') setMainButtonLabel();
-  }
-  function showClientSignup() {
-    document.getElementById('clientSignIn').style.display = 'none';
-    document.getElementById('clientSignUp').style.display = 'block';
-    document.getElementById('loginError').classList.remove('show');
-    setMainButtonLabel();
-  }
-  function showClientLogin() {
-    if (document.getElementById('clientSignIn')) document.getElementById('clientSignIn').style.display = 'block';
-    if (document.getElementById('clientSignUp')) document.getElementById('clientSignUp').style.display = 'none';
-    document.getElementById('loginError').classList.remove('show');
-    setMainButtonLabel();
-  }
-  function showEditorSignup() {
-    document.getElementById('editorSignIn').style.display = 'none';
-    document.getElementById('editorSignUp').style.display = 'block';
-    document.getElementById('loginError').classList.remove('show');
-    populateLoginDropdown();
-    setMainButtonLabel();
   }
   function showEditorLogin() {
-    document.getElementById('editorSignIn').style.display = 'block';
-    document.getElementById('editorSignUp').style.display = 'none';
+    const e = document.getElementById('editorSignIn');
+    if (e) e.style.display = 'block';
     document.getElementById('loginError').classList.remove('show');
-    setMainButtonLabel();
   }
-  function setMainButtonLabel() {
-    const btn = document.getElementById('mainSignInBtn');
-    if (!btn) return;
-    const editorSignup = document.getElementById('editorSignUp');
-    const clientSignup = document.getElementById('clientSignUp');
-    const inEditorSignup = editorSignup && editorSignup.style.display !== 'none';
-    const inClientSignup = clientSignup && clientSignup.style.display !== 'none';
-    btn.textContent = (inEditorSignup || inClientSignup) ? 'Create account' : 'Sign in';
+  function showClientLogin() {
+    const c = document.getElementById('clientSignIn');
+    if (c) c.style.display = 'block';
+    document.getElementById('loginError').classList.remove('show');
   }
   function login() {
     const role = document.querySelector('.role-tab.active').dataset.role;
     const err = document.getElementById('loginError');
     err.classList.remove('show');
-    // Route to create-account when in signup mode
-    if (role === 'editor' && document.getElementById('editorSignUp').style.display !== 'none') {
-      return createEditorAccount();
-    }
-    if (role === 'client' && document.getElementById('clientSignUp').style.display !== 'none') {
-      return createClientAccount();
-    }
     if (role === 'admin') {
       if (document.getElementById('adminPass').value === data.adminPass) {
         session = { role:'admin' }; saveSession(); showApp();
@@ -2980,7 +2948,6 @@
       document.getElementById('loadingOverlay').style.display = 'none';
       if (session) showApp(); else {
         document.getElementById('loginScreen').style.display = 'flex';
-        setMainButtonLabel();
       }
     } catch(e) { console.error('Init failed:', e); document.getElementById('loadingText').textContent = 'Connection failed. Refresh the page.'; document.getElementById('loadingText').style.color = '#ff5252'; }
   }
