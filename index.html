@@ -350,6 +350,7 @@
   .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .status-assigned { background: rgba(74,158,255,0.15); color: var(--blue); }
   .status-progress { background: rgba(255,181,71,0.15); color: var(--amber); }
+  .status-qc { background: rgba(180,140,255,0.15); color: var(--purple); }
   .status-revision { background: rgba(255,82,82,0.15); color: var(--red); }
   .status-done { background: rgba(94,231,176,0.15); color: var(--green); }
   .editor-cell { padding: 12px 14px; cursor: pointer; }
@@ -556,6 +557,7 @@
     <div class="role-tabs">
       <div class="role-tab active" data-role="admin" onclick="switchRole('admin')">Admin</div>
       <div class="role-tab" data-role="editor" onclick="switchRole('editor')">Editor</div>
+      <div class="role-tab" data-role="client" onclick="switchRole('client')">Client</div>
     </div>
     <div id="adminLogin"><div class="form-group"><label>Password</label><input type="password" id="adminPass" placeholder="Enter admin password"></div></div>
     <div id="editorLogin" style="display:none">
@@ -624,6 +626,7 @@
           <option value="">All</option>
           <option value="Assigned">Assigned</option>
           <option value="In Progress">In Progress</option>
+          <option value="In QC">In QC</option>
           <option value="Need Revision">Need Revision</option>
           <option value="Done">Done</option>
         </select>
@@ -697,8 +700,11 @@
     return t ? t.points : 0;
   }
   const STATUS_OPTIONS = [
-    { value:'Assigned', cls:'status-assigned' },{ value:'In Progress', cls:'status-progress' },
-    { value:'Need Revision', cls:'status-revision' },{ value:'Done', cls:'status-done' }
+    { value:'Assigned', cls:'status-assigned' },
+    { value:'In Progress', cls:'status-progress' },
+    { value:'In QC', cls:'status-qc' },
+    { value:'Need Revision', cls:'status-revision' },
+    { value:'Done', cls:'status-done' }
   ];
   function statusClass(v) { const s = STATUS_OPTIONS.find(o => o.value === v); return s ? s.cls : 'status-assigned'; }
   const DEFAULT_COLUMNS = [
@@ -716,6 +722,7 @@
     adminPass: 'admin123',
     editorPass: 'editor123',
     editorAccounts: [],
+    clientAccounts: [],
     teams: [
       { id:'t_siam', name:'Team Siyam', leader:'Siyam', password:'siam123', members:['Siyam','Kiron','Rayhan'] },
       { id:'t_riad', name:'Team Fahim', leader:'Fahim', password:'riad123', members:['Fahim','Riyad','Mehraj'] }
@@ -834,6 +841,26 @@
             data.editorAccounts.push({ name: name, password: name.toLowerCase().replace(/\s+/g,'') + '123' });
           });
           data.accountsV1 = true;
+        }
+        if (!data.clientAccounts) data.clientAccounts = [];
+        // Fix old editor names in rows to match new account names
+        if (!data.editorNameFixV1) {
+          const nameMap = {
+            'siam': 'Siyam', 'Siam': 'Siyam',
+            'riad': 'Riyad', 'Riad': 'Riyad',
+            'raian': 'Rayhan', 'Raian': 'Rayhan',
+            'nobin': 'Nobin', 'Nobin': 'Nobin',
+            'kiron': 'Kiron', 'Kiron': 'Kiron',
+            'mehraj': 'Mehraj', 'Mehraj': 'Mehraj',
+            'fahim': 'Fahim', 'Fahim': 'Fahim',
+            'riyad': 'Riyad', 'Riyad': 'Riyad',
+            'rayhan': 'Rayhan', 'Rayhan': 'Rayhan',
+            'siyam': 'Siyam', 'Siyam': 'Siyam'
+          };
+          (data.rows || []).forEach(r => {
+            if (r.editor && nameMap[r.editor]) r.editor = nameMap[r.editor];
+          });
+          data.editorNameFixV1 = true;
         }
         // One-time upgrade for editor-permissions + Notes column + multi-link cells
         if (!data.colsV2) {
