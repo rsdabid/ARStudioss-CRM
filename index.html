@@ -1800,10 +1800,10 @@
   function openStatusDropdown(e, rowId) {
     e.stopPropagation(); closeMenus();
     const menu = document.createElement('div'); menu.className = 'dropdown-menu';
-    menu.innerHTML = STATUS_OPTIONS.map(o => `<div class="dropdown-item" onclick="setStatus('${rowId}','${o.value}')"><span class="status-pill ${o.cls}">${o.value}</span></div>`).join('');
+    menu.innerHTML = STATUS_OPTIONS.filter(o => isAdmin() || o.value !== 'Done').map(o => `<div class="dropdown-item" onclick="setStatus('${rowId}','${o.value}')"><span class="status-pill ${o.cls}">${o.value}</span></div>`).join('');
     document.body.appendChild(menu); positionMenu(menu, e); openMenu = menu;
   }
-  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; pushUndo(); r.status = val; closeMenus(); renderCRM(); await saveData(); }
+  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; if (val === 'Done' && !isAdmin()) { showToast('Only admin can mark tasks as Done'); return; } pushUndo(); r.status = val; closeMenus(); renderCRM(); await saveData(); }
 
   let calState = { rowId:null, colId:null, viewYear:0, viewMonth:0 };
   function openCalendar(e, rowId, colId) {
