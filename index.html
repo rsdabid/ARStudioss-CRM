@@ -874,6 +874,7 @@
       if (error) { console.error('Load error:', JSON.stringify(error)); showError('Load error: ' + (error.message||error.code||'unknown')); return; }
       if (row && row.data && Object.keys(row.data).length > 0) {
         serverUpdatedAt = row.updated_at;
+        serverDataHash = JSON.stringify(row.data);
         data = { ...DEFAULT_DATA, ...row.data };
         if (!data.teams || !data.teams.length) data.teams = DEFAULT_DATA.teams;
         if (!data.columns || !data.columns.length) data.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
@@ -978,20 +979,29 @@
     } catch(e) { console.error('Load failed:', e); showError('Load failed: ' + (e.message||'unknown')); }
   }
   let lastSaveAt = 0; // timestamp of last successful save (local clock, ms since epoch)
+  let lastUserActivityAt = 0; // last time the user clicked/typed
   let serverUpdatedAt = null; // updated_at from server when we last fetched
-  const SAVE_GRACE_MS = 5000; // ignore server updates within 5s of our own save (prevents echo overwrites)
+  let serverDataHash = null; // hash of data we last saved/loaded, used to detect genuine remote changes
+  const SAVE_GRACE_MS = 10000; // ignore server updates within 10s of our own save
+  const ACTIVITY_GRACE_MS = 5000; // ignore server updates within 5s of user interaction
+
+  // Track user activity to avoid mid-edit overwrites
+  document.addEventListener('click', () => { lastUserActivityAt = Date.now(); }, true);
+  document.addEventListener('keydown', () => { lastUserActivityAt = Date.now(); }, true);
 
   async function saveData() {
     if (isSaving) { pendingSave = true; return; }
     isSaving = true;
     try {
       const nowIso = new Date().toISOString();
+      const snapshot = JSON.stringify(data); // snapshot at save time
       const { error } = await db.from('app_state').update({ data: data, updated_at: nowIso }).eq('id','main');
       if (error) { console.error('Save error:', JSON.stringify(error)); showError('Save error: ' + (error.message||error.code||'unknown')); }
       else {
         clearError();
         lastSaveAt = Date.now();
-        serverUpdatedAt = nowIso; // we know server now has this timestamp (we just wrote it)
+        serverUpdatedAt = nowIso;
+        serverDataHash = snapshot; // we know server has this exact data
       }
     } catch(e) { console.error('Save failed:', e); showError('Save failed: ' + (e.message||'unknown')); }
     finally { isSaving = false; if (pendingSave) { pendingSave = false; saveData(); } }
@@ -1001,7 +1011,6 @@
       const r = localStorage.getItem(SESSION_KEY);
       if (r) {
         const s = JSON.parse(r);
-        // Validate: editor sessions must have editorName (old sessions without it need re-login)
         if (s.role === 'editor' && !s.editorName) { localStorage.removeItem(SESSION_KEY); return; }
         session = s;
       }
@@ -1014,28 +1023,39 @@
   function startAutoRefresh() {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
     autoRefreshTimer = setInterval(async () => {
-      // Don't refresh while user is interacting
+      // Skip if user is actively editing
       if (isSaving || pendingSave) return;
       if (document.querySelector('.modal-overlay.show')) return;
       if (document.querySelector('.cell-input')) return;
       if (document.querySelector('.dropdown-menu') || document.querySelector('.mini-calendar')) return;
-      // Don't refresh within grace period after our own save (prevents overwriting our just-saved data with a slightly stale server copy)
+      // Skip if we recently saved (server might still be stale)
       if (Date.now() - lastSaveAt < SAVE_GRACE_MS) return;
+      // Skip if user just clicked/typed something
+      if (Date.now() - lastUserActivityAt < ACTIVITY_GRACE_MS) return;
       try {
         const { data: row } = await db.from('app_state').select('data, updated_at').eq('id','main').single();
-        // Re-check after the await — user may have started editing
+        // Re-check ALL conditions after the network call
         if (isSaving || pendingSave) return;
         if (Date.now() - lastSaveAt < SAVE_GRACE_MS) return;
+        if (Date.now() - lastUserActivityAt < ACTIVITY_GRACE_MS) return;
         if (document.querySelector('.cell-input')) return;
         if (document.querySelector('.dropdown-menu') || document.querySelector('.mini-calendar')) return;
         if (!row || !row.data) return;
-        // Only apply if the server's timestamp is newer than what we last saw
-        if (serverUpdatedAt && row.updated_at && row.updated_at <= serverUpdatedAt) return;
-        if (JSON.stringify(row.data) === JSON.stringify(data)) {
+        // Only apply if server data differs from what we last knew
+        const newHash = JSON.stringify(row.data);
+        const localHash = JSON.stringify(data);
+        // If server data matches our local data, just update tracking
+        if (newHash === localHash) {
+          serverUpdatedAt = row.updated_at;
+          serverDataHash = newHash;
+          return;
+        }
+        // If server data matches what we last saved (no remote changes since), don't apply
+        if (serverDataHash && newHash === serverDataHash) {
           serverUpdatedAt = row.updated_at;
           return;
         }
-        // Apply update — but preserve any local-only fields that might not be in server data yet
+        // Server has changes we don't have — apply them
         const merged = { ...DEFAULT_DATA, ...row.data };
         if (!merged.columns || !merged.columns.length) merged.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
         if (!merged.rows) merged.rows = [];
@@ -1043,6 +1063,7 @@
         if (!merged.clientAccounts) merged.clientAccounts = [];
         data = merged;
         serverUpdatedAt = row.updated_at;
+        serverDataHash = newHash;
         renderAll();
       } catch(e) { console.error('Auto-refresh failed:', e); }
     }, 15000);
