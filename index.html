@@ -753,6 +753,22 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="namedLinksModal">
+  <div class="modal" style="max-width:440px">
+    <h3>Raw Footage</h3>
+    <p class="modal-sub">Add project names with their links</p>
+    <div id="namedLinksList" style="margin:16px 0;display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input type="text" id="nlName" placeholder="Project name" style="flex:1;padding:10px 12px;font-size:13px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui)">
+      <input type="text" id="nlUrl" placeholder="Paste link" style="flex:1;padding:10px 12px;font-size:13px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui)">
+      <button class="btn-tb" onclick="nlAddEntry()" style="padding:10px 14px;white-space:nowrap">＋</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="nlSave()" style="width:100%">Done</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1675,9 +1691,11 @@
       if (entries.length) {
         disp = '<div class="links-stack">' + entries.map(l => renderLinkEntry(l)).join('') + '</div>';
       } else {
-        disp = `<span class="cell-empty">Add link or text</span>`;
+        disp = `<span class="cell-empty">${c.id === 'rawFile' ? 'Add project' : 'Add link or text'}</span>`;
       }
-      const click = editable ? `onclick="editLinksCell(event,'${r.id}','${c.id}')"` : '';
+      // rawFile uses named-link popup; others use textarea
+      const handler = c.id === 'rawFile' ? 'editNamedLinksCell' : 'editLinksCell';
+      const click = editable ? `onclick="${handler}(event,'${r.id}','${c.id}')"` : '';
       return `<td><div class="cell links-cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
     }
     if (c.type === 'link') {
@@ -1734,12 +1752,113 @@
   function editTextCell(e, rowId, colId) {
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const td = e.currentTarget.parentElement;
-    td.innerHTML = `<input class="cell-input" type="text" value="${escapeAttr(r[colId]||'')}">`;
-    const input = td.querySelector('input'); input.focus(); input.select();
-    let goDown = false;
-    const commit = async () => { pushUndo(); r[colId] = input.value.trim(); renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
-    input.addEventListener('blur', commit, { once:true });
-    input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+    const isNotes = colId === 'notes';
+    if (isNotes) {
+      // Textarea for notes — Shift+Enter = new line, Enter = commit
+      const curVal = r[colId] || '';
+      const lineCount = Math.max(2, (curVal.match(/\n/g) || []).length + 2);
+      td.innerHTML = `<textarea class="cell-input cell-textarea" rows="${lineCount}">${escapeHtml(curVal)}</textarea>`;
+      const input = td.querySelector('textarea'); input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      const commit = async () => { pushUndo(); r[colId] = input.value.trimEnd(); renderActiveCRM(); await saveData(); };
+      input.addEventListener('blur', commit, { once:true });
+      input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderCRM(); }
+      });
+    } else {
+      td.innerHTML = `<input class="cell-input" type="text" value="${escapeAttr(r[colId]||'')}">`;
+      const input = td.querySelector('input'); input.focus(); input.select();
+      let goDown = false;
+      const commit = async () => { pushUndo(); r[colId] = input.value.trim(); renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
+      input.addEventListener('blur', commit, { once:true });
+      input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+    }
+  }
+
+  // Named Links popup for Raw Footage
+  let nlState = { rowId: null, colId: null, entries: [] };
+
+  function parseNamedLink(line) {
+    line = String(line).trim();
+    if (!line) return null;
+    // Markdown format: [name](url)
+    const md = line.match(/^\[([^\]]*)\]\(([^)]+)\)$/);
+    if (md) return { name: md[1].trim(), url: md[2].trim() };
+    // Bare URL
+    if (/^https?:\/\//i.test(line) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(line)) return { name: '', url: line };
+    // Plain text (no URL)
+    return { name: line, url: '' };
+  }
+
+  function editNamedLinksCell(e, rowId, colId) {
+    e.stopPropagation();
+    const r = data.rows.find(x => x.id === rowId); if (!r) return;
+    nlState = { rowId, colId, entries: [] };
+    // Parse existing entries
+    const lines = parseLinks(r[colId] || '');
+    lines.forEach(l => {
+      const p = parseNamedLink(l);
+      if (p) nlState.entries.push(p);
+    });
+    nlRenderEntries();
+    document.getElementById('nlName').value = '';
+    document.getElementById('nlUrl').value = '';
+    document.getElementById('namedLinksModal').classList.add('show');
+    setTimeout(() => {
+      document.getElementById('nlName').focus();
+      // Enter in either field adds the entry
+      ['nlName','nlUrl'].forEach(id => {
+        document.getElementById(id).onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); nlAddEntry(); } };
+      });
+    }, 100);
+  }
+
+  function nlRenderEntries() {
+    const list = document.getElementById('namedLinksList');
+    if (!nlState.entries.length) {
+      list.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:8px;font-style:italic">No projects added yet</div>';
+      return;
+    }
+    list.innerHTML = nlState.entries.map((e, i) => {
+      const display = e.name || e.url || '(empty)';
+      const urlHint = e.url ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px">${escapeHtml(truncate(e.url, 30))}</span>` : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:8px">
+        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${escapeHtml(display)}${urlHint}</span>
+        <button class="dnd-remove" onclick="nlRemoveEntry(${i})" style="font-size:16px">×</button>
+      </div>`;
+    }).join('');
+  }
+
+  function nlAddEntry() {
+    const name = (document.getElementById('nlName').value || '').trim();
+    const url = (document.getElementById('nlUrl').value || '').trim();
+    if (!name && !url) { showToast('Enter a project name or link'); return; }
+    nlState.entries.push({ name: name, url: url });
+    document.getElementById('nlName').value = '';
+    document.getElementById('nlUrl').value = '';
+    nlRenderEntries();
+    document.getElementById('nlName').focus();
+  }
+
+  function nlRemoveEntry(idx) {
+    nlState.entries.splice(idx, 1);
+    nlRenderEntries();
+  }
+
+  async function nlSave() {
+    const r = data.rows.find(x => x.id === nlState.rowId); if (!r) return;
+    pushUndo();
+    // Convert entries to markdown format: [name](url) or bare text
+    r[nlState.colId] = nlState.entries.map(e => {
+      if (e.url && e.name) return `[${e.name}](${e.url})`;
+      if (e.url) return e.url;
+      return e.name;
+    }).filter(Boolean).join('\n');
+    document.getElementById('namedLinksModal').classList.remove('show');
+    renderCRM();
+    if (currentPage === 'clients') renderClientsCRM();
+    await saveData();
   }
 
   function editLinksCell(e, rowId, colId) {
