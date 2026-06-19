@@ -363,6 +363,7 @@
   /* Client view of their own CRM */
   .client-row { border-bottom:1px solid rgba(28,56,43,0.4); }
   .row-num { color: var(--text-muted); font-size: 11px; font-weight: 600; text-align: center; min-width: 28px; opacity: 0.5; }
+  .cell-text-line { font-size: 13px; color: var(--text); line-height: 1.4; padding: 1px 0; }
 
   /* Remove number input spinners globally for rate inputs */
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -1243,36 +1244,51 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
     const arb = document.getElementById('addRowBar');
+    const lbTab = document.querySelector('.nav-tab[data-page="leaderboard"]');
     if (isAdmin()) {
       document.getElementById('userBadge').textContent = '⚡ Admin';
       document.getElementById('financeTab').style.display = 'flex';
       document.getElementById('clientsTab').style.display = 'flex';
+      if (lbTab) lbTab.style.display = 'flex';
       document.getElementById('addColBtn').style.display = 'inline-block';
       if (arb) arb.style.display = 'none'; // admin uses per-editor Add Row buttons in grouped view
     } else if (isEditor()) {
       document.getElementById('userBadge').textContent = '✂️ ' + editorName();
       document.getElementById('financeTab').style.display = 'none';
       document.getElementById('clientsTab').style.display = 'none';
+      if (lbTab) lbTab.style.display = 'flex';
       document.getElementById('addColBtn').style.display = 'none';
       if (arb) arb.style.display = 'flex'; // editors can add rows
-      if (currentPage === 'finance' || currentPage === 'clients') switchPage('crm');
     } else {
       // client
       document.getElementById('userBadge').textContent = '🤝 ' + clientName();
       document.getElementById('financeTab').style.display = 'none';
       document.getElementById('clientsTab').style.display = 'none';
+      if (lbTab) lbTab.style.display = 'none'; // clients can't see leaderboard
       document.getElementById('addColBtn').style.display = 'inline-block';
       if (arb) { arb.style.display = 'flex'; }
       const addLabel = document.getElementById('addRowLabel');
       if (addLabel) addLabel.textContent = 'Add project';
-      switchPage('crm');
     }
-    renderAll(); startAutoRefresh();
+    // Restore last viewed page (if allowed for this role), else default to crm
+    let startPage = 'crm';
+    try { startPage = localStorage.getItem('arstudioss_page') || 'crm'; } catch(e) {}
+    const allowed = {
+      admin: ['crm','clients','leaderboard','finance'],
+      editor: ['crm','leaderboard'],
+      client: ['crm']
+    };
+    const role = session.role;
+    if (!allowed[role].includes(startPage)) startPage = 'crm';
+    switchPage(startPage);
+    startAutoRefresh();
   }
   function switchPage(page) {
     if (page === 'finance' && !isAdmin()) return;
     if (page === 'clients' && !isAdmin()) return;
+    if (page === 'leaderboard' && isClient()) return;
     currentPage = page;
+    try { localStorage.setItem('arstudioss_page', page); } catch(e) {}
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
     renderAll();
@@ -1398,6 +1414,11 @@
       grouped.style.display = 'none';
       renderCRMFlat();
     }
+  }
+  // Re-render whichever CRM-type view is currently active (used after cell edits so updates show live)
+  function renderActiveCRM() {
+    if (currentPage === 'clients') renderClientsCRM();
+    else renderCRM();
   }
 
   function renderCRMFlat() {
@@ -1649,12 +1670,12 @@
       return `<td><div class="cell date-cell" ${click} style="${editable?'':'cursor:default'}">${ring}<span>${txt}</span></div></td>`;
     }
     if (c.type === 'links') {
-      const links = parseLinks(val);
+      const entries = parseLinks(val);
       let disp;
-      if (links.length) {
-        disp = '<div class="links-stack">' + links.map(l => `<a href="${escapeAttr(linkify(l))}" target="_blank" class="cell-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(truncate(l))}</a>`).join('') + '</div>';
+      if (entries.length) {
+        disp = '<div class="links-stack">' + entries.map(l => renderLinkEntry(l)).join('') + '</div>';
       } else {
-        disp = `<span class="cell-empty">Add link</span>`;
+        disp = `<span class="cell-empty">Add link or text</span>`;
       }
       const click = editable ? `onclick="editLinksCell(event,'${r.id}','${c.id}')"` : '';
       return `<td><div class="cell links-cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
@@ -1670,6 +1691,24 @@
     return `<td><div class="cell" ${click} style="${editable?'':'cursor:default'}">${disp}</div></td>`;
   }
   function truncate(s, n=22) { s = String(s); return s.length > n ? s.slice(0,n) + '…' : s; }
+  // Render one entry which may be: [label](url) markdown link, a bare URL, or plain text
+  function renderLinkEntry(entry) {
+    entry = String(entry).trim();
+    if (!entry) return '';
+    // Markdown-style link: [label](url)
+    const md = entry.match(/^\[([^\]]*)\]\(([^)]+)\)$/);
+    if (md) {
+      const label = md[1].trim() || md[2].trim();
+      const url = md[2].trim();
+      return `<a href="${escapeAttr(linkify(url))}" target="_blank" class="cell-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(truncate(label))}</a>`;
+    }
+    // Bare URL (starts with http/https or looks like a domain)
+    if (/^https?:\/\//i.test(entry) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(entry)) {
+      return `<a href="${escapeAttr(linkify(entry))}" target="_blank" class="cell-link" onclick="event.stopPropagation()">🔗 ${escapeHtml(truncate(entry))}</a>`;
+    }
+    // Plain text
+    return `<div class="cell-text-line">${escapeHtml(entry)}</div>`;
+  }
   function linkify(s) { s = String(s).trim(); if (/^https?:\/\//i.test(s)) return s; return 'https://' + s; }
   function formatDate(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
 
@@ -1698,7 +1737,7 @@
     td.innerHTML = `<input class="cell-input" type="text" value="${escapeAttr(r[colId]||'')}">`;
     const input = td.querySelector('input'); input.focus(); input.select();
     let goDown = false;
-    const commit = async () => { pushUndo(); r[colId] = input.value.trim(); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
+    const commit = async () => { pushUndo(); r[colId] = input.value.trim(); renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
   }
@@ -1707,15 +1746,32 @@
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const td = e.currentTarget.parentElement;
     const cur = r[colId] || '';
-    td.innerHTML = `<textarea class="cell-input cell-textarea" rows="${Math.max(2, parseLinks(cur).length)}">${escapeHtml(cur)}</textarea>`;
+    td.innerHTML = `<textarea class="cell-input cell-textarea" rows="${Math.max(2, parseLinks(cur).length)}" placeholder="Type text or paste a link. Select text + Cmd/Ctrl+K to embed a link.">${escapeHtml(cur)}</textarea>`;
     const input = td.querySelector('textarea'); input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
     let goDown = false;
-    const commit = async () => { pushUndo(); r[colId] = parseLinks(input.value).join('\n'); renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
+    const commit = async () => { pushUndo(); r[colId] = parseLinks(input.value).join('\n'); renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, colId); };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => {
+      // Cmd/Ctrl+K: wrap selected text as a markdown link
+      if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
+        ev.preventDefault();
+        const start = input.selectionStart, end = input.selectionEnd;
+        const selected = input.value.substring(start, end);
+        const url = prompt('Enter the link URL:', 'https://');
+        if (url && url.trim()) {
+          const label = selected || 'link';
+          const md = `[${label}](${url.trim()})`;
+          input.value = input.value.substring(0, start) + md + input.value.substring(end);
+          // place cursor after inserted link
+          const pos = start + md.length;
+          input.setSelectionRange(pos, pos);
+        }
+        input.focus();
+        return;
+      }
       if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); goDown=true; input.blur(); }
-      if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderCRM(); }
+      if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderActiveCRM(); }
     });
   }
   function editNumCell(e, rowId, field) {
@@ -1731,7 +1787,7 @@
       const v = input.value.trim();
       if (field === 'revenue') r.revenue = v === '' ? null : Number(v);
       else r.points = v === '' ? null : Number(v);
-      renderCRM(); await saveData(); if (goDown) focusCellBelow(rowId, field);
+      renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, field);
     };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
@@ -1755,7 +1811,7 @@
       (isAdmin() ? `<div class="dropdown-divider"></div><div class="dropdown-add" onclick="newEditorWithTeam('${rowId}')">＋ Add new editor</div>` : '');
     document.body.appendChild(menu); positionMenu(menu, e); openMenu = menu;
   }
-  async function assignEditor(rowId, name) { const r = data.rows.find(x => x.id === rowId); if (!r) return; pushUndo(); r.editor = name||null; closeMenus(); renderCRM(); await saveData(); }
+  async function assignEditor(rowId, name) { const r = data.rows.find(x => x.id === rowId); if (!r) return; pushUndo(); r.editor = name||null; closeMenus(); renderActiveCRM(); await saveData(); }
   function newEditorWithTeam(rowId) {
     closeMenus();
     showPrompt('Add new editor', 'Editor name:', '', (name) => {
@@ -1803,7 +1859,7 @@
     menu.innerHTML = STATUS_OPTIONS.filter(o => isAdmin() || o.value !== 'Done').map(o => `<div class="dropdown-item" onclick="setStatus('${rowId}','${o.value}')"><span class="status-pill ${o.cls}">${o.value}</span></div>`).join('');
     document.body.appendChild(menu); positionMenu(menu, e); openMenu = menu;
   }
-  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; if (val === 'Done' && !isAdmin()) { showToast('Only admin can mark tasks as Done'); return; } pushUndo(); r.status = val; closeMenus(); renderCRM(); await saveData(); }
+  async function setStatus(rowId, val) { const r = data.rows.find(x => x.id === rowId); if (!r) return; if (val === 'Done' && !isAdmin()) { showToast('Only admin can mark tasks as Done'); return; } pushUndo(); r.status = val; closeMenus(); renderActiveCRM(); await saveData(); }
 
   let calState = { rowId:null, colId:null, viewYear:0, viewMonth:0 };
   function openCalendar(e, rowId, colId) {
@@ -1837,7 +1893,7 @@
     cal.innerHTML = html;
   }
   function calNav(dir) { calState.viewMonth += dir; if (calState.viewMonth<0) { calState.viewMonth=11; calState.viewYear--; } if (calState.viewMonth>11) { calState.viewMonth=0; calState.viewYear++; } renderCalendar(); }
-  async function pickDate(ds) { const r = data.rows.find(x => x.id === calState.rowId); if (!r) return; pushUndo(); r[calState.colId] = ds||null; closeMenus(); renderCRM(); await saveData(); }
+  async function pickDate(ds) { const r = data.rows.find(x => x.id === calState.rowId); if (!r) return; pushUndo(); r[calState.colId] = ds||null; closeMenus(); renderActiveCRM(); await saveData(); }
 
   function positionMenu(menu, e) {
     const rect = menu.getBoundingClientRect();
@@ -1902,7 +1958,7 @@
       } else {
         data.columns.push({ id:'col_'+Date.now(), label:name, type:'text', adminOnly:false, locked:false, editorEditable:true });
       }
-      renderCRM(); await saveData(); showToast(`Column "${name}" added`);
+      renderActiveCRM(); await saveData(); showToast(`Column "${name}" added`);
     });
   }
   function deleteColumn(colId) {
@@ -1916,7 +1972,7 @@
         pushUndo();
         acct.columns = acct.columns.filter(c => c.id !== colId);
         data.rows.forEach(r => { if (r.client === clientName()) delete r[colId]; });
-        renderCRM(); await saveData(); showToast('Column deleted');
+        renderActiveCRM(); await saveData(); showToast('Column deleted');
       }, true);
       return;
     }
@@ -1925,7 +1981,7 @@
     showConfirm('Delete column?', `"${col.label}" and all its data will be removed.`, 'Delete', async () => {
       pushUndo(); data.columns = data.columns.filter(c => c.id !== colId);
       data.rows.forEach(r => delete r[colId]);
-      renderCRM(); await saveData(); showToast('Column deleted');
+      renderActiveCRM(); await saveData(); showToast('Column deleted');
     }, true);
   }
 
