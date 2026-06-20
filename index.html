@@ -1508,10 +1508,13 @@
     editorOrder.forEach(name => {
       const myRows = allRows.filter(r => r.editor === name && filterRow(r));
       const doneRows = myRows.filter(r => r.status === 'Done');
+      const inProgressRows = myRows.filter(r => r.status !== 'Done');
       const totalRev = doneRows.reduce((s,r) => s + (Number(r.revenue)||0), 0);
+      const inProgressRev = inProgressRows.reduce((s,r) => s + (Number(r.revenue)||0), 0);
       const totalPts = doneRows.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
       const pending = myRows.length - doneRows.length;
       const color = teamColor[name] || 'var(--green)';
+      const inProgressLabel = inProgressRev > 0 ? ` <span style="opacity:0.6">(+$${inProgressRev.toLocaleString()} in pipeline)</span>` : '';
 
       html += `<div class="client-section" style="margin-bottom:32px">
         <div class="client-section-header">
@@ -1519,7 +1522,7 @@
             <div class="client-avatar" style="background:linear-gradient(135deg, ${color}, ${color}dd);color:#fff">${escapeHtml(name[0].toUpperCase())}</div>
             <div>
               <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">${escapeHtml(name)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myRows.length} project${myRows.length===1?'':'s'} · ${doneRows.length} done${pending?` · ${pending} pending`:''} · $${totalRev.toLocaleString()} · ${totalPts} pts</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myRows.length} project${myRows.length===1?'':'s'} · ${doneRows.length} done${pending?` · ${pending} pending`:''} · $${totalRev.toLocaleString()}${inProgressLabel} · ${totalPts} pts</div>
             </div>
           </div>
           <button class="btn-tb" onclick="addRowForEditor('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
@@ -1583,14 +1586,25 @@
     // Overall totals card at the bottom
     const allFiltered = allRows.filter(filterRow);
     const allDone = allFiltered.filter(r => r.status === 'Done');
+    const inProgress = allFiltered.filter(r => r.status !== 'Done');
     const grandRev = allDone.reduce((s,r) => s + (Number(r.revenue)||0), 0);
+    const grandRevInProgress = inProgress.reduce((s,r) => s + (Number(r.revenue)||0), 0);
     const grandPts = allDone.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+    const grandPtsInProgress = inProgress.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
     const grandPending = allFiltered.length - allDone.length;
     html += `<div style="margin-top:8px;padding:18px 22px;background:rgba(13,31,24,0.4);border:1px solid var(--border);border-radius:var(--radius-md);display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
-      <div style="font-size:13px;color:var(--text-muted);font-weight:600;letter-spacing:0.02em">PERIOD TOTALS (Done only${grandPending?` · ${grandPending} pending`:''})</div>
-      <div style="display:flex;gap:24px">
-        <div><div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">REVENUE</div><div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--font-display)">$${grandRev.toLocaleString()}</div></div>
-        <div><div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">POINTS</div><div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-display)">${grandPts}</div></div>
+      <div style="font-size:13px;color:var(--text-muted);font-weight:600;letter-spacing:0.02em">PERIOD TOTALS${grandPending?` · ${grandPending} in pipeline`:''}</div>
+      <div style="display:flex;gap:28px">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">REVENUE</div>
+          <div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--font-display);line-height:1.2">$${grandRev.toLocaleString()}</div>
+          ${grandRevInProgress > 0 ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">+ $${grandRevInProgress.toLocaleString()} in pipeline</div>` : ''}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em">POINTS</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-display);line-height:1.2">${grandPts}</div>
+          ${grandPtsInProgress > 0 ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">+ ${grandPtsInProgress} in pipeline</div>` : ''}
+        </div>
       </div>
     </div>`;
 
@@ -1620,20 +1634,24 @@
   }
 
   // Deadline ring: returns SVG showing time remaining (fills + reddens as deadline nears)
-  function deadlineRing(iso) {
+  function deadlineRing(iso, status) {
     if (!iso) return '';
+    // If task is Done, show full green ring with checkmark
+    if (status === 'Done') {
+      return `<span class="dl-ring" title="Completed"><svg width="18" height="18" viewBox="0 0 18 18">
+        <circle cx="9" cy="9" r="7" fill="none" stroke="var(--green)" stroke-width="2.5"/>
+        <path d="M5.5 9.2 L7.7 11.4 L12.5 6.6" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg></span>`;
+    }
     const now = new Date();
     const dl = new Date(iso + 'T23:59:59');
-    const created = now; // we only know "now"; ring is based on days remaining
     const msLeft = dl - now;
     const daysLeft = msLeft / (1000*60*60*24);
-    // fraction filled: assume a 14-day window; closer = more filled
     let frac;
     if (daysLeft <= 0) frac = 1;
     else if (daysLeft >= 14) frac = 0.08;
     else frac = 1 - (daysLeft / 14);
     frac = Math.max(0.05, Math.min(1, frac));
-    // color: green far, amber mid, red close/overdue
     let color = 'var(--green)';
     if (daysLeft <= 0) color = 'var(--red)';
     else if (daysLeft <= 2) color = 'var(--red)';
@@ -1680,7 +1698,7 @@
       return `<td><div class="num-cell" ${clickable}><span class="points-val">${pts}</span>${isAdmin()?tag:''}</div></td>`;
     }
     if (c.type === 'date') {
-      const ring = deadlineRing(val);
+      const ring = deadlineRing(val, r.status);
       const txt = val ? formatDate(val) : `<span class="cell-empty">Set date</span>`;
       const click = editable ? `onclick="openCalendar(event,'${r.id}','${c.id}')"` : '';
       return `<td><div class="cell date-cell" ${click} style="${editable?'':'cursor:default'}">${ring}<span>${txt}</span></div></td>`;
@@ -1821,13 +1839,17 @@
       return;
     }
     list.innerHTML = nlState.entries.map((e, i) => {
-      const display = e.name || e.url || '(empty)';
-      const urlHint = e.url ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px">${escapeHtml(truncate(e.url, 30))}</span>` : '';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:8px">
-        <span style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${escapeHtml(display)}${urlHint}</span>
-        <button class="dnd-remove" onclick="nlRemoveEntry(${i})" style="font-size:16px">×</button>
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:8px">
+        <input type="text" value="${escapeAttr(e.name||'')}" oninput="nlEditEntry(${i},'name',this.value)" placeholder="Name" style="flex:1;padding:7px 10px;font-size:12px;background:rgba(5,13,10,0.6);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
+        <input type="text" value="${escapeAttr(e.url||'')}" oninput="nlEditEntry(${i},'url',this.value)" placeholder="Link" style="flex:1.4;padding:7px 10px;font-size:12px;background:rgba(5,13,10,0.6);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-ui)">
+        <button class="dnd-remove" onclick="nlRemoveEntry(${i})" title="Remove" style="font-size:16px">×</button>
       </div>`;
     }).join('');
+  }
+
+  function nlEditEntry(idx, field, val) {
+    if (!nlState.entries[idx]) return;
+    nlState.entries[idx][field] = val;
   }
 
   function nlAddEntry() {
@@ -1848,12 +1870,20 @@
 
   async function nlSave() {
     const r = data.rows.find(x => x.id === nlState.rowId); if (!r) return;
+    // Capture anything currently typed in the input row before saving
+    const pendingName = (document.getElementById('nlName').value || '').trim();
+    const pendingUrl = (document.getElementById('nlUrl').value || '').trim();
+    if (pendingName || pendingUrl) {
+      nlState.entries.push({ name: pendingName, url: pendingUrl });
+    }
     pushUndo();
     // Convert entries to markdown format: [name](url) or bare text
     r[nlState.colId] = nlState.entries.map(e => {
-      if (e.url && e.name) return `[${e.name}](${e.url})`;
-      if (e.url) return e.url;
-      return e.name;
+      const name = (e.name || '').trim();
+      const url = (e.url || '').trim();
+      if (url && name) return `[${name}](${url})`;
+      if (url) return url;
+      return name;
     }).filter(Boolean).join('\n');
     document.getElementById('namedLinksModal').classList.remove('show');
     renderCRM();
@@ -2059,9 +2089,136 @@
     const r = data.rows.find(x => x.id === rowId);
     if (!r) return;
     if (!canDeleteRow(r)) { showToast('Only the row creator can delete this'); return; }
-    showConfirm('Delete row?', 'This row will be permanently deleted.', 'Delete', async () => {
-      pushUndo(); data.rows = data.rows.filter(x => x.id !== rowId); renderCRM(); if (currentPage === 'clients') renderClientsCRM(); await saveData(); showToast('Row deleted');
+    showConfirm('Delete row?', 'This row will be moved to the recycle bin and can be restored within 45 days.', 'Delete', async () => {
+      pushUndo();
+      // Move to recycle bin
+      if (!data.recycleBin) data.recycleBin = [];
+      const deletedBy = isAdmin() ? 'admin' : (isEditor() ? 'editor:'+editorName() : 'client:'+clientName());
+      data.recycleBin.push({
+        ...r,
+        deletedAt: new Date().toISOString(),
+        deletedBy: deletedBy
+      });
+      data.rows = data.rows.filter(x => x.id !== rowId);
+      renderCRM();
+      if (currentPage === 'clients') renderClientsCRM();
+      await saveData();
+      showToast('Row moved to recycle bin');
     }, true);
+  }
+
+  // Auto-purge entries older than 45 days from the recycle bin
+  function purgeOldRecycleBin() {
+    if (!data.recycleBin || !data.recycleBin.length) return false;
+    const cutoff = Date.now() - (45 * 24 * 60 * 60 * 1000);
+    const before = data.recycleBin.length;
+    data.recycleBin = data.recycleBin.filter(item => {
+      const t = new Date(item.deletedAt).getTime();
+      return t >= cutoff;
+    });
+    return data.recycleBin.length !== before;
+  }
+
+  // Get recycle bin entries the current user can see
+  function visibleRecycleEntries() {
+    if (!data.recycleBin) return [];
+    if (isAdmin()) return data.recycleBin;
+    if (isEditor()) {
+      const me = editorName().toLowerCase();
+      return data.recycleBin.filter(item => {
+        // Editor sees: rows they deleted, OR rows previously assigned to them
+        if (item.deletedBy === 'editor:' + editorName()) return true;
+        if (item.editor && item.editor.toLowerCase() === me) return true;
+        return false;
+      });
+    }
+    if (isClient()) {
+      const me = clientName().toLowerCase();
+      return data.recycleBin.filter(item => {
+        if (item.deletedBy === 'client:' + clientName()) return true;
+        if (item.client && item.client.toLowerCase() === me) return true;
+        return false;
+      });
+    }
+    return [];
+  }
+
+  async function restoreFromRecycleBin(id) {
+    if (!data.recycleBin) return;
+    const idx = data.recycleBin.findIndex(item => item.id === id);
+    if (idx < 0) return;
+    const item = data.recycleBin[idx];
+    // Permission check: same rule as canDeleteRow
+    if (!canDeleteRow(item)) { showToast('Only the original creator (or admin) can restore this'); return; }
+    pushUndo();
+    const restored = { ...item };
+    delete restored.deletedAt;
+    delete restored.deletedBy;
+    data.rows.push(restored);
+    data.recycleBin.splice(idx, 1);
+    renderRecycleBin();
+    renderAll();
+    await saveData();
+    showToast('Row restored');
+  }
+
+  async function permanentlyDeleteFromBin(id) {
+    if (!data.recycleBin) return;
+    const idx = data.recycleBin.findIndex(item => item.id === id);
+    if (idx < 0) return;
+    showConfirm('Permanently delete?', 'This row will be lost forever and cannot be recovered.', 'Delete forever', async () => {
+      pushUndo();
+      data.recycleBin.splice(idx, 1);
+      renderRecycleBin();
+      await saveData();
+      showToast('Permanently deleted');
+    }, true);
+  }
+
+  function renderRecycleBin() {
+    const container = document.getElementById('recycleBinContent');
+    if (!container) return;
+    const entries = visibleRecycleEntries();
+    if (!entries.length) {
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Recycle bin is empty. Deleted rows are kept here for 45 days.</div>`;
+      return;
+    }
+    // Sort newest first
+    const sorted = [...entries].sort((a,b) => (b.deletedAt||'').localeCompare(a.deletedAt||''));
+    container.innerHTML = sorted.map(item => {
+      const deletedDate = new Date(item.deletedAt);
+      const daysAgo = Math.floor((Date.now() - deletedDate.getTime()) / (1000*60*60*24));
+      const daysLeft = 45 - daysAgo;
+      const deletedByDisplay = item.deletedBy === 'admin' ? 'Admin'
+        : item.deletedBy && item.deletedBy.startsWith('editor:') ? item.deletedBy.substring(7)
+        : item.deletedBy && item.deletedBy.startsWith('client:') ? item.deletedBy.substring(7) + ' (client)'
+        : 'Unknown';
+      // Show identifying info
+      const rawFootage = item.rawFile ? parseLinks(item.rawFile).map(l => {
+        const p = parseNamedLink(l);
+        return p ? (p.name || p.url) : l;
+      }).join(', ') : '';
+      const projectLabel = rawFootage || `Row from ${new Date(item.createdAt || item.deletedAt).toLocaleDateString()}`;
+      const meta = [];
+      if (item.editor) meta.push(`Editor: ${escapeHtml(item.editor)}`);
+      if (item.client) meta.push(`Client: ${escapeHtml(item.client)}`);
+      if (item.revenue) meta.push(`$${Number(item.revenue).toLocaleString()}`);
+      if (item.status) meta.push(escapeHtml(item.status));
+      const canRestore = canDeleteRow(item);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(truncate(projectLabel, 60))}</div>
+          <div style="font-size:11px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap">
+            ${meta.map(m => `<span>${m}</span>`).join('<span style="opacity:0.4">·</span>')}
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px;opacity:0.7">
+            Deleted by ${escapeHtml(deletedByDisplay)} · ${daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo===1?'':'s') + ' ago'} · ${daysLeft} day${daysLeft===1?'':'s'} until permanent removal
+          </div>
+        </div>
+        ${canRestore ? `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:6px 12px" onclick="restoreFromRecycleBin('${item.id}')">Restore</button>` : ''}
+        ${isAdmin() ? `<button class="dnd-remove" title="Permanently delete" onclick="permanentlyDeleteFromBin('${item.id}')" style="font-size:16px">×</button>` : ''}
+      </div>`;
+    }).join('');
   }
   function addColumn() {
     if (!isAdmin() && !isClient()) return;
@@ -2271,6 +2428,8 @@
       const clientRows = allClientRows.filter(r => r.client && r.client.toLowerCase() === client.name.toLowerCase());
       const done = clientRows.filter(r => r.status === 'Done').length;
       const totalRev = clientRows.filter(r => r.status === 'Done').reduce((s,r) => s + (Number(r.revenue)||0), 0);
+      const inProgressRev = clientRows.filter(r => r.status !== 'Done').reduce((s,r) => s + (Number(r.revenue)||0), 0);
+      const inProgressLabel = inProgressRev > 0 ? ` <span style="opacity:0.6">(+$${inProgressRev.toLocaleString()} in pipeline)</span>` : '';
 
       html += `<div class="client-section" style="margin-bottom:32px">
         <div class="client-section-header">
@@ -2278,7 +2437,7 @@
             <div class="client-avatar">${escapeHtml(client.name[0].toUpperCase())}</div>
             <div>
               <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">${escapeHtml(client.name)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${clientRows.length} project${clientRows.length===1?'':'s'} · ${done} done · $${totalRev.toLocaleString()} revenue</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${clientRows.length} project${clientRows.length===1?'':'s'} · ${done} done · $${totalRev.toLocaleString()} revenue${inProgressLabel}</div>
             </div>
           </div>
           <button class="btn-tb" onclick="addClientRow('${escapeAttr(client.name)}')" style="font-size:12px;padding:7px 14px">＋ Add Project</button>
@@ -2784,7 +2943,31 @@
   function openSettings() { document.getElementById('settingsModal').classList.add('show'); renderSettings(); }
   function renderSettings() {
     if (isAdmin()) { document.getElementById('settingsTitle').textContent = 'Admin Settings'; document.getElementById('settingsSub').textContent = 'Manage teams, members, and passwords'; renderAdminSettings(); }
+    else if (isClient()) { document.getElementById('settingsTitle').textContent = 'Client Settings'; document.getElementById('settingsSub').textContent = 'Your account and recycle bin'; renderClientSettings(); }
     else { document.getElementById('settingsTitle').textContent = 'Editor Settings'; document.getElementById('settingsSub').textContent = 'Your teams and info'; renderTeamSettings(); }
+  }
+  function renderClientSettings() {
+    const acct = (data.clientAccounts || []).find(a => a.name === clientName());
+    let html = '';
+    html += `<div class="team-section"><h4>My Account</h4>
+      <div style="font-size:13px;color:var(--text);margin-bottom:10px">Signed in as <strong>${escapeHtml(clientName())}</strong></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">CHANGE PASSWORD</div>
+      <div class="password-row"><div class="pwd-field"><input type="password" id="myClientPassInput" value="${acct ? escapeAttr(acct.password) : ''}"><button type="button" class="pwd-toggle" onclick="togglePwd('myClientPassInput',this)">👁</button></div><button onclick="changeMyClientPass()">Update</button></div>
+    </div>`;
+    const binEntries = visibleRecycleEntries();
+    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days. You can restore rows you created.</div>
+      <div id="recycleBinContent"></div>
+    </div>`;
+    document.getElementById('settingsBody').innerHTML = html;
+    renderRecycleBin();
+  }
+  async function changeMyClientPass() {
+    const v = (document.getElementById('myClientPassInput').value || '').trim();
+    if (!v || v.length < 3) { showToast('Password must be at least 3 characters'); return; }
+    const acct = (data.clientAccounts || []).find(a => a.name === clientName());
+    if (!acct) { showToast('Account not found'); return; }
+    pushUndo(); acct.password = v; await saveData(); showToast('Password updated');
   }
   function renderAdminSettings() {
     const teamColors = {
@@ -2888,7 +3071,15 @@
         <button class="btn-tb" onclick="addClientFromSettings()" style="font-size:12px;padding:8px 14px;white-space:nowrap">＋ Add Client</button>
       </div>
     </div>`;
+
+    // Recycle Bin section (admin sees all)
+    const binEntries = visibleRecycleEntries();
+    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days then permanently removed. Click Restore to bring a row back.</div>
+      <div id="recycleBinContent"></div>
+    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
+    renderRecycleBin();
   }
 
   // ---- Drag and drop ----
@@ -2971,7 +3162,14 @@
       ${(data.individuals||[]).length ? `<div><div style="font-size:11px;color:#8aa3b0;margin-bottom:6px;font-weight:700">Individuals</div><div class="members-list">${(data.individuals||[]).map(m=>`<span class="member-pill">${escapeHtml(m)}</span>`).join('')}</div></div>` : ''}
       <p style="color:var(--text-muted);font-size:12px;margin-top:10px">Ask admin to change teams.</p>
     </div>`;
+    // Recycle Bin section (editor sees own deleted rows + rows assigned to them)
+    const binEntries = visibleRecycleEntries();
+    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days. You can restore rows you created.</div>
+      <div id="recycleBinContent"></div>
+    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
+    renderRecycleBin();
   }
   async function changeMyPass() {
     const v = (document.getElementById('myPassInput').value || '').trim();
@@ -3208,6 +3406,9 @@
       await loadData(); loadSession(); populateLoginDropdown();
       // Run rollover once after data is loaded
       await rolloverIncomplete();
+      // Auto-purge entries older than 45 days from recycle bin
+      const purged = purgeOldRecycleBin();
+      if (purged) { await saveData(); }
       document.getElementById('loadingOverlay').style.display = 'none';
       if (session) showApp(); else {
         document.getElementById('loginScreen').style.display = 'flex';
