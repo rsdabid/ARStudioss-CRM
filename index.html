@@ -363,6 +363,13 @@
   /* Client view of their own CRM */
   .client-row { border-bottom:1px solid rgba(28,56,43,0.4); }
   .row-num { color: var(--text-muted); font-size: 11px; font-weight: 600; text-align: center; min-width: 28px; opacity: 0.5; }
+  .shadow-row td { padding: 10px 14px !important; background: rgba(5,13,10,0.3); border-top: 1px dashed rgba(28,56,43,0.5); }
+  .shadow-row .shadow-totals { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+  .shadow-row .shadow-totals span { margin-right: 14px; }
+  .shadow-row .shadow-totals .val-done { color: var(--green); }
+  .shadow-row .shadow-totals .val-pipe { opacity: 0.5; }
+  .shadow-row .shadow-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .shadow-row .shadow-actions button { font-size: 11px; padding: 5px 12px; }
   .cell-text-line { font-size: 13px; color: var(--text); line-height: 1.4; padding: 1px 0; }
 
   /* Remove number input spinners globally for rate inputs */
@@ -1523,11 +1530,9 @@
             <div class="client-avatar" style="background:linear-gradient(135deg, ${color}, ${color}dd);color:#fff">${escapeHtml(name[0].toUpperCase())}</div>
             <div>
               <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">${escapeHtml(name)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myRows.length} project${myRows.length===1?'':'s'} · ${doneRows.length} done${pending?` · ${pending} pending`:''} · $${totalRev.toLocaleString()}${inProgressLabel} · ${totalPts} pts</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myRows.length} project${myRows.length===1?'':'s'} · ${doneRows.length} done${pending?` · ${pending} pending`:''}</div>
             </div>
           </div>
-          <button class="btn-tb" onclick="addRowForEditor('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
-          ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px;opacity:0.8">📋 Paste</button>` : ''}
         </div>
         <div class="table-wrap" style="margin-top:10px">
           <table class="crm">
@@ -1549,6 +1554,23 @@
           html += `<tr data-row="${r.id}">${num}${cells}<td style="text-align:center;white-space:nowrap">${copyBtn}${delBtn}</td></tr>`;
         });
       }
+      // Shadow footer row: totals + action buttons
+      const colSpanLeft = Math.max(1, cols.findIndex(c => c.id === 'revenue') + 1);
+      const colSpanRight = cols.length + 2 - colSpanLeft;
+      const pipeLabel = inProgressRev > 0 ? `<span class="val-pipe">+$${inProgressRev.toLocaleString()} in pipeline</span>` : '';
+      html += `<tr class="shadow-row">
+        <td colspan="${colSpanLeft}">
+          <div class="shadow-totals">
+            <span class="val-done">$${totalRev.toLocaleString()} done</span>${pipeLabel}<span>${totalPts} pts</span>
+          </div>
+        </td>
+        <td colspan="${colSpanRight}" style="text-align:right">
+          <div class="shadow-actions">
+            <button class="btn-tb" onclick="addRowForEditor('${escapeAttr(name)}')">＋ Add Row</button>
+            ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow('${escapeAttr(name)}')" style="opacity:0.8">📋 Paste</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
       html += `</tbody></table></div></div>`;
     });
 
@@ -1561,11 +1583,9 @@
             <div class="client-avatar" style="background:linear-gradient(135deg, #6b7480, #4a5158);color:#fff">?</div>
             <div>
               <div style="font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-display);letter-spacing:-0.01em">Unassigned</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${unassigned.length} row${unassigned.length===1?'':'s'} waiting to be assigned to an editor</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${unassigned.length} row${unassigned.length===1?'':'s'} waiting to be assigned</div>
             </div>
           </div>
-          <button class="btn-tb" onclick="addRow()" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
-          ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow(null)" style="font-size:12px;padding:7px 14px;opacity:0.8">📋 Paste</button>` : ''}
         </div>
         <div class="table-wrap" style="margin-top:10px">
           <table class="crm">
@@ -1582,6 +1602,19 @@
                 const delBtn = canDeleteRow(r) ? `<span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span>` : '';
                 return `<tr data-row="${r.id}">${num}${cells}<td style="text-align:center;white-space:nowrap">${copyBtn}${delBtn}</td></tr>`;
               }).join('')}
+              <tr class="shadow-row">
+                <td colspan="${Math.max(1, cols.findIndex(c => c.id === 'revenue') + 1)}">
+                  <div class="shadow-totals">
+                    <span style="opacity:0.5">Unassigned rows</span>
+                  </div>
+                </td>
+                <td colspan="${cols.length + 2 - Math.max(1, cols.findIndex(c => c.id === 'revenue') + 1)}" style="text-align:right">
+                  <div class="shadow-actions">
+                    <button class="btn-tb" onclick="addRow()">＋ Add Row</button>
+                    ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow(null)" style="opacity:0.8">📋 Paste</button>` : ''}
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
