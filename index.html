@@ -369,7 +369,8 @@
   .shadow-row .shadow-totals .val-done { color: var(--green); }
   .shadow-row .shadow-totals .val-pipe { opacity: 0.5; }
   .shadow-row .shadow-actions { display: flex; gap: 8px; justify-content: flex-end; }
-  .shadow-row .shadow-actions button { font-size: 11px; padding: 5px 12px; }
+  .shadow-row .shadow-actions button { font-size: 11px; padding: 5px 12px; background: transparent; border: 1px dashed rgba(28,56,43,0.6); color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-family: var(--font-ui); font-weight: 500; }
+  .shadow-row .shadow-actions button:hover { border-color: var(--green-deep); color: var(--green); background: rgba(94,231,176,0.06); }
   .cell-text-line { font-size: 13px; color: var(--text); line-height: 1.4; padding: 1px 0; }
 
   /* Remove number input spinners globally for rate inputs */
