@@ -762,8 +762,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="namedLinksModal">
-
 <div class="modal-overlay" id="recycleBinModal">
   <div class="modal" style="max-width:640px">
     <h3>🗑 Recycle Bin</h3>
@@ -2263,7 +2261,7 @@
 
   function renderRecycleBin() {
     // Render into both Settings container and standalone modal
-    const targets = [document.getElementById('recycleBinContent'), document.getElementById('recycleBinModalContent')].filter(Boolean);
+    const targets = [document.getElementById('recycleBinModalContent')].filter(Boolean);
     const entries = visibleRecycleEntries();
     const emptyMsg = `<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">Recycle bin is empty.</div>`;
     if (!entries.length) {
@@ -3041,13 +3039,7 @@
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">CHANGE PASSWORD</div>
       <div class="password-row"><div class="pwd-field"><input type="password" id="myClientPassInput" value="${acct ? escapeAttr(acct.password) : ''}"><button type="button" class="pwd-toggle" onclick="togglePwd('myClientPassInput',this)">👁</button></div><button onclick="changeMyClientPass()">Update</button></div>
     </div>`;
-    const binEntries = visibleRecycleEntries();
-    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days. You can restore rows you created.</div>
-      <div id="recycleBinContent"></div>
-    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
-    renderRecycleBin();
   }
   async function changeMyClientPass() {
     const v = (document.getElementById('myClientPassInput').value || '').trim();
@@ -3158,15 +3150,7 @@
         <button class="btn-tb" onclick="addClientFromSettings()" style="font-size:12px;padding:8px 14px;white-space:nowrap">＋ Add Client</button>
       </div>
     </div>`;
-
-    // Recycle Bin section (admin sees all)
-    const binEntries = visibleRecycleEntries();
-    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days then permanently removed. Click Restore to bring a row back.</div>
-      <div id="recycleBinContent"></div>
-    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
-    renderRecycleBin();
   }
 
   // ---- Drag and drop ----
@@ -3249,14 +3233,7 @@
       ${(data.individuals||[]).length ? `<div><div style="font-size:11px;color:#8aa3b0;margin-bottom:6px;font-weight:700">Individuals</div><div class="members-list">${(data.individuals||[]).map(m=>`<span class="member-pill">${escapeHtml(m)}</span>`).join('')}</div></div>` : ''}
       <p style="color:var(--text-muted);font-size:12px;margin-top:10px">Ask admin to change teams.</p>
     </div>`;
-    // Recycle Bin section (editor sees own deleted rows + rows assigned to them)
-    const binEntries = visibleRecycleEntries();
-    html += `<div class="team-section"><h4>🗑 Recycle Bin (${binEntries.length})</h4>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Deleted rows are kept here for 45 days. You can restore rows you created.</div>
-      <div id="recycleBinContent"></div>
-    </div>`;
     document.getElementById('settingsBody').innerHTML = html;
-    renderRecycleBin();
   }
   async function changeMyPass() {
     const v = (document.getElementById('myPassInput').value || '').trim();
