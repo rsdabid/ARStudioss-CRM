@@ -849,6 +849,7 @@
   // Undo/Redo system — snapshots entire data before each mutation
   const MAX_UNDO = 30;
   let undoStack = [], redoStack = [];
+  let clipboardRow = null; // holds copied row data for paste
   function pushUndo() {
     undoStack.push(JSON.stringify(data));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
@@ -1526,13 +1527,14 @@
             </div>
           </div>
           <button class="btn-tb" onclick="addRowForEditor('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
+          ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow('${escapeAttr(name)}')" style="font-size:12px;padding:7px 14px;opacity:0.8">📋 Paste</button>` : ''}
         </div>
         <div class="table-wrap" style="margin-top:10px">
           <table class="crm">
             <thead><tr>
               <th style="width:36px">#</th>
               ${cols.map(c => `<th>${escapeHtml(c.label)}${(!c.locked && isAdmin()) ? `<span class="col-menu" onclick="deleteColumn('${c.id}')" title="Delete column">✕</span>` : ''}</th>`).join('')}
-              <th style="width:40px"></th>
+              <th style="width:60px"></th>
             </tr></thead>
             <tbody>`;
 
@@ -1542,8 +1544,9 @@
         myRows.forEach((r, idx) => {
           const num = `<td><div class="cell row-num">${idx + 1}</div></td>`;
           const cells = cols.map(c => renderCell(r, c)).join('');
-          const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : `<td style="text-align:center" title="Created by client — only the client can delete"><span style="opacity:0.25">🔒</span></td>`;
-          html += `<tr data-row="${r.id}">${num}${cells}${del}</tr>`;
+          const copyBtn = `<span class="row-action" onclick="event.stopPropagation();copyRow('${r.id}')" title="Copy row" style="cursor:pointer;opacity:0.4;margin-right:6px;font-size:13px">📋</span>`;
+          const delBtn = canDeleteRow(r) ? `<span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span>` : `<span style="opacity:0.25" title="Created by client">🔒</span>`;
+          html += `<tr data-row="${r.id}">${num}${cells}<td style="text-align:center;white-space:nowrap">${copyBtn}${delBtn}</td></tr>`;
         });
       }
       html += `</tbody></table></div></div>`;
@@ -1562,20 +1565,22 @@
             </div>
           </div>
           <button class="btn-tb" onclick="addRow()" style="font-size:12px;padding:7px 14px">＋ Add Row</button>
+          ${clipboardRow ? `<button class="btn-tb" onclick="pasteRow(null)" style="font-size:12px;padding:7px 14px;opacity:0.8">📋 Paste</button>` : ''}
         </div>
         <div class="table-wrap" style="margin-top:10px">
           <table class="crm">
             <thead><tr>
               <th style="width:36px">#</th>
               ${cols.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}
-              <th style="width:40px"></th>
+              <th style="width:60px"></th>
             </tr></thead>
             <tbody>
               ${unassigned.map((r, idx) => {
                 const num = `<td><div class="cell row-num">${idx + 1}</div></td>`;
                 const cells = cols.map(c => renderCell(r, c)).join('');
-                const del = canDeleteRow(r) ? `<td style="text-align:center"><span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span></td>` : '<td></td>';
-                return `<tr data-row="${r.id}">${num}${cells}${del}</tr>`;
+                const copyBtn = `<span class="row-action" onclick="event.stopPropagation();copyRow('${r.id}')" title="Copy row" style="cursor:pointer;opacity:0.4;margin-right:6px;font-size:13px">📋</span>`;
+                const delBtn = canDeleteRow(r) ? `<span class="row-delete" onclick="deleteRow('${r.id}')" title="Delete row">🗑</span>` : '';
+                return `<tr data-row="${r.id}">${num}${cells}<td style="text-align:center;white-space:nowrap">${copyBtn}${delBtn}</td></tr>`;
               }).join('')}
             </tbody>
           </table>
@@ -1626,6 +1631,36 @@
     });
     renderCRM(); await saveData();
   }
+
+  function copyRow(rowId) {
+    const r = data.rows.find(x => x.id === rowId);
+    if (!r) return;
+    clipboardRow = JSON.parse(JSON.stringify(r));
+    renderCRM();
+    if (currentPage === 'clients') renderClientsCRM();
+    showToast('Row copied. Click "Paste" in any editor section.');
+  }
+
+  async function pasteRow(targetEditor) {
+    if (!isAdmin()) return;
+    if (!clipboardRow) { showToast('Nothing copied yet. Click the copy icon on a row first.'); return; }
+    pushUndo();
+    const newRow = JSON.parse(JSON.stringify(clipboardRow));
+    newRow.id = 'r_'+Date.now()+'_'+Math.floor(Math.random()*1000);
+    newRow.editor = targetEditor || null;
+    newRow.period = activePeriodKey();
+    newRow.createdAt = new Date().toISOString();
+    newRow.createdBy = 'admin';
+    // Reset status to Assigned for the new copy
+    newRow.status = 'Assigned';
+    // Keep revenue/points/rawFile/deadline/notes/frameio/finalVideo from original
+    data.rows.push(newRow);
+    renderCRM();
+    if (currentPage === 'clients') renderClientsCRM();
+    await saveData();
+    showToast(`Row pasted under ${targetEditor || 'Unassigned'}`);
+  }
+
   // Permission: can the current user edit this column?
   function canEdit(c) {
     if (isAdmin()) return true;
