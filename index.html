@@ -443,7 +443,7 @@
   #floatRobot {
     position: fixed; width: 72px; height: 86px; z-index: 200;
     pointer-events: auto; cursor: pointer; user-select: none;
-    will-change: transform; transition: transform 0.12s linear;
+    will-change: transform; left: 0; top: 0;
     filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45));
   }
   #floatRobot svg { width: 100%; height: 100%; display: block; overflow: visible; }
@@ -1686,18 +1686,19 @@
     const wrap = document.getElementById('teamPulseWrap');
     if (!wrap) return null;
     const r = wrap.getBoundingClientRect();
-    // Constrain robot within the pulse section area (plus a little above)
-    return {
-      left: r.left + 10,
-      right: r.right - 80,
-      top: r.top - 30,
-      bottom: r.bottom - 80
-    };
+    // If panel not laid out yet, fall back to a safe viewport region
+    if (r.width < 50 || r.height < 50) {
+      return { left: 40, right: Math.max(120, window.innerWidth - 120), top: window.innerHeight - 300, bottom: window.innerHeight - 120 };
+    }
+    const left = r.left + 10;
+    const right = Math.max(left + 60, r.right - 90);
+    const top = r.top + 10;
+    const bottom = Math.max(top + 60, r.bottom - 100);
+    return { left, right, top, bottom };
   }
 
   function startFloatRobot() {
     stopFloatRobot();
-    // Create robot element
     let el = document.getElementById('floatRobot');
     if (!el) {
       el = document.createElement('div');
@@ -1715,15 +1716,16 @@
     robotState.el = el;
     robotState.bubble = bubble;
     robotState.angry = false;
+    robotState.vx = 0; robotState.vy = 0; robotState.chaseStreak = 0;
 
     const b = getPulseBounds();
     robotState.bounds = b;
-    if (b) {
-      robotState.x = (b.left + b.right) / 2;
-      robotState.y = b.top + 20;
-      robotState.tx = robotState.x;
-      robotState.ty = robotState.y;
-    }
+    robotState.x = b ? (b.left + b.right) / 2 : window.innerWidth/2;
+    robotState.y = b ? b.top + 10 : window.innerHeight - 250;
+    robotState.tx = robotState.x;
+    robotState.ty = robotState.y;
+    // Apply initial transform immediately so it's visible on first paint
+    el.style.transform = `translate(${robotState.x}px, ${robotState.y}px)`;
 
     // Cursor-dodge handler
     if (!window._robotCursorHandler) {
@@ -1797,26 +1799,28 @@
   function stepRobot() {
     const s = robotState;
     if (!s.el) return;
-    const b = s.bounds || getPulseBounds();
+    // Refresh bounds each frame (handles scroll / resize)
+    const b = getPulseBounds();
     if (!b) return;
-    // Spring toward target
-    const ax = (s.tx - s.x) * 0.012;
-    const ay = (s.ty - s.y) * 0.012;
+    s.bounds = b;
+    // Spring toward target (stronger pull = more lively)
+    const ax = (s.tx - s.x) * 0.025;
+    const ay = (s.ty - s.y) * 0.025;
     s.vx += ax; s.vy += ay;
     // Damping
-    s.vx *= 0.92; s.vy *= 0.92;
+    s.vx *= 0.90; s.vy *= 0.90;
     // Clamp speed
     const sp = Math.hypot(s.vx, s.vy);
-    const maxSp = 7;
+    const maxSp = 9;
     if (sp > maxSp) { s.vx = s.vx/sp*maxSp; s.vy = s.vy/sp*maxSp; }
     s.x += s.vx; s.y += s.vy;
     // Keep inside bounds (bounce gently)
-    if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx)*0.5; }
-    if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx)*0.5; }
-    if (s.y < b.top) { s.y = b.top; s.vy = Math.abs(s.vy)*0.5; }
-    if (s.y > b.bottom) { s.y = b.bottom; s.vy = -Math.abs(s.vy)*0.5; }
+    if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx)*0.6; }
+    if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx)*0.6; }
+    if (s.y < b.top) { s.y = b.top; s.vy = Math.abs(s.vy)*0.6; }
+    if (s.y > b.bottom) { s.y = b.bottom; s.vy = -Math.abs(s.vy)*0.6; }
     // Tilt based on horizontal velocity
-    const tilt = Math.max(-12, Math.min(12, s.vx * 1.5));
+    const tilt = Math.max(-14, Math.min(14, s.vx * 1.6));
     s.el.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) rotate(${tilt.toFixed(1)}deg)`;
     // Move bubble above robot
     if (s.bubble && s.bubble.classList.contains('show')) {
