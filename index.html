@@ -418,6 +418,54 @@
   .pulse-project-pts { font-size: 11px; color: var(--text-muted); font-weight: 600; min-width: 50px; text-align: right; }
   .pulse-project-pts.is-done { color: var(--green); }
   .pulse-empty { text-align: center; color: var(--text-muted); font-size: 12px; padding: 14px; font-style: italic; }
+
+  /* Competition banner + robot mascot */
+  .pulse-compete {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; margin-bottom: 16px;
+    background: rgba(5,13,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    position: relative;
+  }
+  .pulse-compete.lead-strong { border-color: rgba(255,215,0,0.4); background: linear-gradient(100deg, rgba(255,215,0,0.06), rgba(5,13,10,0.5)); }
+  .pulse-compete.lead-mid { border-color: rgba(94,231,176,0.35); background: linear-gradient(100deg, rgba(94,231,176,0.05), rgba(5,13,10,0.5)); }
+  .pulse-compete.behind { border-color: rgba(255,147,71,0.35); background: linear-gradient(100deg, rgba(255,147,71,0.05), rgba(5,13,10,0.5)); }
+  .pulse-compete.tied { border-color: rgba(74,158,255,0.35); }
+
+  .robot {
+    width: 56px; height: 64px; flex-shrink: 0; position: relative;
+    cursor: pointer; user-select: none;
+    transition: transform 0.5s cubic-bezier(0.34,1.4,0.64,1);
+    transform: translate(var(--rx, 0px), var(--ry, 0px));
+  }
+  .robot svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .robot .robot-body { animation: robotFloat 3s ease-in-out infinite; transform-origin: center; }
+  @keyframes robotFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .robot .robot-flame { animation: flameFlicker 0.4s ease-in-out infinite alternate; transform-origin: center top; }
+  @keyframes flameFlicker { 0% { transform: scaleY(0.85); opacity:0.8; } 100% { transform: scaleY(1.1); opacity:1; } }
+  .robot.angry .robot-body { animation: robotShake 0.35s ease-in-out infinite; }
+  @keyframes robotShake { 0%,100%{transform:translateX(0) rotate(0)} 25%{transform:translateX(-3px) rotate(-4deg)} 75%{transform:translateX(3px) rotate(4deg)} }
+
+  .pulse-compete-msg { flex: 1; }
+  .pulse-compete-msg .cmp-headline { font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--font-display); letter-spacing: -0.01em; line-height: 1.3; }
+  .pulse-compete-msg .cmp-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .cmp-gap-bar { margin-top: 10px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+  .cmp-gap-fill { height: 100%; border-radius: 100px; transition: width 0.6s var(--ease-out); }
+
+  .robot-bubble {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) scale(0.9);
+    background: var(--text); color: #052e20;
+    font-size: 11px; font-weight: 600; padding: 7px 11px; border-radius: 10px;
+    max-width: 240px; width: max-content;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+    z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.4); text-align: center;
+  }
+  .robot-bubble::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--text); }
+  .robot-bubble.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  .robot-bubble.angry { background: var(--red); color: #fff; }
+  .robot-bubble.angry::after { border-top-color: var(--red); }
+
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rate-input { -moz-appearance: textfield; }
 
@@ -1510,6 +1558,117 @@
   function toggleTeamPulse() {
     teamPulseOpen = !teamPulseOpen;
     renderTeamPulse();
+    if (teamPulseOpen) setTimeout(initRobot, 50);
+  }
+
+  // Cute astronaut robot SVG
+  function robotSVG() {
+    return `<svg viewBox="0 0 100 116" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="rbHelmet" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#c9d4e0"/>
+        </linearGradient>
+        <linearGradient id="rbFlame" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#2a7fd4" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="rbEye" cx="0.5" cy="0.4" r="0.6">
+          <stop offset="0" stop-color="#6fc4ff"/><stop offset="0.7" stop-color="#1f6fd0"/><stop offset="1" stop-color="#0a3a78"/>
+        </radialGradient>
+      </defs>
+      <g class="robot-flame">
+        <ellipse cx="50" cy="104" rx="8" ry="14" fill="url(#rbFlame)"/>
+        <ellipse cx="50" cy="100" rx="4" ry="9" fill="#bdecff" opacity="0.85"/>
+      </g>
+      <g class="robot-body">
+        <ellipse cx="30" cy="82" rx="7" ry="11" fill="#e3e9f0" transform="rotate(-18 30 82)"/>
+        <ellipse cx="70" cy="82" rx="7" ry="11" fill="#e3e9f0" transform="rotate(18 70 82)"/>
+        <rect x="34" y="74" width="32" height="16" rx="8" fill="#d2dae4"/>
+        <ellipse cx="50" cy="46" rx="34" ry="36" fill="url(#rbHelmet)"/>
+        <ellipse cx="50" cy="44" rx="26" ry="22" fill="#2b3442"/>
+        <ellipse cx="50" cy="40" rx="24" ry="16" fill="#3a4556" opacity="0.6"/>
+        <circle class="rb-eye" cx="40" cy="44" r="7" fill="url(#rbEye)"/>
+        <circle class="rb-eye" cx="60" cy="44" r="7" fill="url(#rbEye)"/>
+        <circle cx="42" cy="42" r="2.2" fill="#dff2ff"/>
+        <circle cx="62" cy="42" r="2.2" fill="#dff2ff"/>
+        <path class="rb-mouth" d="M44 58 Q50 63 56 58" stroke="#9fb0c4" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="30" cy="30" rx="8" ry="5" fill="#fff" opacity="0.5" transform="rotate(-25 30 30)"/>
+      </g>
+    </svg>`;
+  }
+
+  let robotBubbleTimer = null, robotMsgIndex = 0, robotAngryActive = false;
+  const robotExtraMsgs = [
+    "Pssst... check your pipeline.",
+    "Your teammates are watching 👀",
+    "Every point counts!",
+    "Go finish something 💪",
+    "Tick tock... deadlines!",
+  ];
+
+  function initRobot() {
+    const robot = document.getElementById('pulseRobot');
+    const bubble = document.getElementById('robotBubble');
+    if (!robot || !bubble) return;
+    robotAngryActive = false;
+
+    // Show the main message shortly after open
+    setTimeout(() => { if (!robotAngryActive) bubble.classList.add('show'); }, 600);
+    setTimeout(() => { if (!robotAngryActive) bubble.classList.remove('show'); }, 5000);
+
+    // Rotate playful messages every so often
+    if (robotBubbleTimer) clearInterval(robotBubbleTimer);
+    robotBubbleTimer = setInterval(() => {
+      if (robotAngryActive) return;
+      const b = document.getElementById('robotBubble');
+      const r = document.getElementById('pulseRobot');
+      if (!b || !r) { clearInterval(robotBubbleTimer); return; }
+      // Only if pulse still open and visible
+      if (!teamPulseOpen) { clearInterval(robotBubbleTimer); return; }
+      b.textContent = robotExtraMsgs[robotMsgIndex % robotExtraMsgs.length];
+      robotMsgIndex++;
+      b.classList.add('show');
+      setTimeout(() => { if (!robotAngryActive && b) b.classList.remove('show'); }, 3500);
+    }, 9000);
+
+    // Subtle cursor follow — robot drifts max ~12px across the whole screen
+    if (!window._robotMoveHandler) {
+      window._robotMoveHandler = (e) => {
+        const rob = document.getElementById('pulseRobot');
+        if (!rob) return;
+        const maxShift = 12; // px — very slight
+        const rx = ((e.clientX / window.innerWidth) - 0.5) * 2 * maxShift;
+        const ry = ((e.clientY / window.innerHeight) - 0.5) * 2 * (maxShift * 0.6);
+        rob.style.setProperty('--rx', rx.toFixed(1) + 'px');
+        rob.style.setProperty('--ry', ry.toFixed(1) + 'px');
+      };
+      document.addEventListener('mousemove', window._robotMoveHandler);
+    }
+  }
+
+  const robotAngryMsgs = [
+    "HEY! Don't touch me! 😠",
+    "Stop poking me! 💢",
+    "I'm WORKING here, hands off!",
+    "Do that again and I leave 😤",
+    "Rude! I'm trying to motivate you!",
+  ];
+  function robotAngry(e) {
+    if (e) e.stopPropagation();
+    const robot = document.getElementById('pulseRobot');
+    const bubble = document.getElementById('robotBubble');
+    if (!robot || !bubble) return;
+    robotAngryActive = true;
+    robot.classList.add('angry');
+    bubble.classList.add('angry');
+    bubble.textContent = robotAngryMsgs[Math.floor(Math.random() * robotAngryMsgs.length)];
+    bubble.classList.add('show');
+    clearTimeout(robotBubbleTimer);
+    setTimeout(() => {
+      robot.classList.remove('angry');
+      bubble.classList.remove('angry');
+      bubble.classList.remove('show');
+      robotAngryActive = false;
+    }, 2500);
   }
 
   function getMyTeam() {
@@ -1544,6 +1703,77 @@
     const teamPipePts = mateData.reduce((s,m) => s + m.pipePts, 0);
     const teamDonePts = mateData.reduce((s,m) => s + m.donePts, 0);
 
+    // ---- Competition computation: MY team (all members incl. me) vs the OTHER team ----
+    function teamPoints(team) {
+      if (!team) return { done: 0, pipe: 0 };
+      let done = 0, pipe = 0;
+      (team.members || []).forEach(name => {
+        periodRowsAll.filter(r => r.editor === name).forEach(r => {
+          const pts = r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue);
+          if (r.status === 'Done') done += pts; else pipe += pts;
+        });
+      });
+      return { done, pipe };
+    }
+    const myTeamPts = teamPoints(myTeam);
+    // Find the rival team (the other team with the most done points)
+    const otherTeams = (data.teams || []).filter(t => t.id !== myTeam.id);
+    let rival = null, rivalPts = { done: 0, pipe: 0 };
+    otherTeams.forEach(t => {
+      const p = teamPoints(t);
+      if (!rival || p.done > rivalPts.done) { rival = t; rivalPts = p; }
+    });
+
+    const myDone = myTeamPts.done;
+    const rivalDone = rivalPts.done;
+    const gap = myDone - rivalDone; // positive = ahead, negative = behind
+    const absGap = Math.abs(gap);
+
+    // Determine state + message
+    let cmpClass, headline, sub, robotMsg;
+    const robotName = 'Bolt';
+    if (!rival) {
+      cmpClass = 'tied';
+      headline = `Your team is flying solo 🚀`;
+      sub = `${myDone} points done this period. No rival team to chase yet.`;
+      robotMsg = `Keep stacking those points!`;
+    } else if (gap > 0 && absGap >= 40) {
+      cmpClass = 'lead-strong';
+      headline = `You're crushing ${escapeHtml(rival.name)} by ${absGap} points 🔥`;
+      sub = `Dominant lead. Keep the pressure on and don't let up.`;
+      robotMsg = `LEGENDARY. You're ${absGap} ahead. Absolute machines! 🏆`;
+    } else if (gap > 0 && absGap >= 15) {
+      cmpClass = 'lead-mid';
+      headline = `Ahead of ${escapeHtml(rival.name)} by ${absGap} points 💪`;
+      sub = `Solid lead, but they're within striking distance. Finish your pipeline to seal it.`;
+      robotMsg = `Nice lead! Close out ${teamPipePts} pipeline pts to make it safe.`;
+    } else if (gap > 0) {
+      cmpClass = 'lead-mid';
+      headline = `Barely ahead of ${escapeHtml(rival.name)} — by ${absGap} 😬`;
+      sub = `Razor thin. One finished project could flip this either way.`;
+      robotMsg = `So close! Don't get comfortable. Push!`;
+    } else if (gap === 0) {
+      cmpClass = 'tied';
+      headline = `Dead even with ${escapeHtml(rival.name)} 🤝`;
+      sub = `Tied at ${myDone} each. Whoever finishes next pulls ahead.`;
+      robotMsg = `It's a TIE. Next point wins the lead. GO!`;
+    } else if (absGap <= 15) {
+      cmpClass = 'behind';
+      headline = `Behind ${escapeHtml(rival.name)} by ${absGap} points`;
+      sub = `You've got ${teamPipePts} pts in pipeline. Finishing those puts you ${teamPipePts - absGap >= 0 ? (teamPipePts - absGap) + ' ahead' : 'right back in it'}.`;
+      robotMsg = teamPipePts >= absGap ? `Finish your pipeline and you OVERTAKE them! 🚀` : `Only ${absGap} behind. You've got this!`;
+    } else {
+      cmpClass = 'behind';
+      headline = `Trailing ${escapeHtml(rival.name)} by ${absGap} points`;
+      sub = `Big gap, but ${teamPipePts} pts are still in your pipeline. Every finish counts.`;
+      robotMsg = `Time to lock in. ${absGap} to catch. Let's move! 💢`;
+    }
+
+    // Gap bar: visualize my share vs total
+    const totalForBar = Math.max(1, myDone + rivalDone);
+    const myPct = Math.round((myDone / totalForBar) * 100);
+    const barColor = gap >= 0 ? (cmpClass === 'lead-strong' ? 'var(--gold)' : 'var(--green)') : 'var(--amber)';
+
     // Toggle bar
     let html = `<div class="pulse-toggle ${teamPulseOpen?'open':''}" onclick="toggleTeamPulse()">
       <span>👥 Team Pulse</span>
@@ -1553,8 +1783,20 @@
     </div>`;
 
     if (teamPulseOpen) {
-      html += `<div class="pulse-panel">
-        <div class="pulse-header">
+      html += `<div class="pulse-panel">`;
+      // Competition banner with robot
+      html += `<div class="pulse-compete ${cmpClass}">
+        <div class="robot" id="pulseRobot" onclick="robotAngry(event)">
+          <div class="robot-bubble" id="robotBubble">${escapeHtml(robotMsg)}</div>
+          ${robotSVG()}
+        </div>
+        <div class="pulse-compete-msg">
+          <div class="cmp-headline">${headline}</div>
+          <div class="cmp-sub">${sub}</div>
+          <div class="cmp-gap-bar"><div class="cmp-gap-fill" style="width:${myPct}%;background:${barColor}"></div></div>
+        </div>
+      </div>`;
+      html += `<div class="pulse-header">
           <span class="pulse-header-title">Your teammates this period</span>
           <span class="pulse-header-sub">${teamDonePts} done · ${teamPipePts} in pipeline</span>
         </div>`;
@@ -1612,6 +1854,7 @@
       html += `</div>`;
     }
     wrap.innerHTML = html;
+    if (teamPulseOpen) setTimeout(initRobot, 50);
   }
 
   function renderCRMFlat() {
