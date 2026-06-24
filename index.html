@@ -373,7 +373,51 @@
   .shadow-row .shadow-actions button:hover { border-color: var(--green-deep); color: var(--green); background: rgba(94,231,176,0.06); }
   .cell-text-line { font-size: 13px; color: var(--text); line-height: 1.4; padding: 1px 0; }
 
-  /* Remove number input spinners globally for rate inputs */
+  /* Team Pulse — collapsed teammate view for editors */
+  .pulse-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; cursor: pointer;
+    background: rgba(13,31,24,0.4);
+    border: 1px dashed rgba(28,56,43,0.7);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.02em; transition: all 0.2s var(--ease-out);
+    font-family: var(--font-ui);
+  }
+  .pulse-toggle:hover { color: var(--text); border-color: var(--green-deep); background: rgba(13,31,24,0.6); }
+  .pulse-toggle .pulse-arrow { transition: transform 0.2s var(--ease-out); display: inline-block; font-size: 10px; }
+  .pulse-toggle.open .pulse-arrow { transform: rotate(180deg); }
+  .pulse-panel {
+    margin-top: 12px; padding: 20px 22px;
+    background: rgba(13,31,24,0.3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .pulse-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid rgba(28,56,43,0.5);
+  }
+  .pulse-header-title { font-size: 15px; font-weight: 700; color: var(--text); font-family: var(--font-display); letter-spacing: -0.01em; }
+  .pulse-header-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+  .pulse-member {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 0; border-bottom: 1px dashed rgba(28,56,43,0.4);
+  }
+  .pulse-member:last-child { border-bottom: none; padding-bottom: 4px; }
+  .pulse-member-avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .pulse-member-name { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--font-display); }
+  .pulse-member-stats { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .pulse-member-stats .pts-done { color: var(--green); font-weight: 600; }
+  .pulse-member-stats .pts-pipe { opacity: 0.55; }
+  .pulse-projects { flex: 1; }
+  .pulse-project { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 12px; }
+  .pulse-project-name { flex: 1; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pulse-project-name a { color: var(--green); text-decoration: none; }
+  .pulse-project-name a:hover { text-decoration: underline; }
+  .pulse-project-pts { font-size: 11px; color: var(--text-muted); font-weight: 600; min-width: 50px; text-align: right; }
+  .pulse-project-pts.is-done { color: var(--green); }
+  .pulse-empty { text-align: center; color: var(--text-muted); font-size: 12px; padding: 14px; font-style: italic; }
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rate-input { -moz-appearance: textfield; }
 
@@ -719,6 +763,7 @@
       <div class="add-row-bar" id="addRowBar" onclick="addRow()">＋ <span id="addRowLabel">Add row</span></div>
     </div>
     <div id="crmGroupedWrap" style="display:none"></div>
+    <div id="teamPulseWrap" style="display:none;margin-top:24px"></div>
   </div>
 
   <div class="page" id="page-clients">
@@ -1441,21 +1486,132 @@
     const flat = document.getElementById('crmFlatWrap');
     const grouped = document.getElementById('crmGroupedWrap');
     if (isAdmin()) {
-      // Grouped view: one section per editor
       flat.style.display = 'none';
       grouped.style.display = 'block';
       renderCRMGrouped();
     } else {
-      // Flat view for editor and client
       flat.style.display = '';
       grouped.style.display = 'none';
       renderCRMFlat();
     }
+    renderTeamPulse();
   }
   // Re-render whichever CRM-type view is currently active (used after cell edits so updates show live)
   function renderActiveCRM() {
     if (currentPage === 'clients') renderClientsCRM();
     else renderCRM();
+  }
+
+  // ===== Team Pulse =====
+  // Shows teammates' work + points so editors can push each other.
+  // Visible to editors only, hidden for individuals (no teammates).
+
+  let teamPulseOpen = false;
+  function toggleTeamPulse() {
+    teamPulseOpen = !teamPulseOpen;
+    renderTeamPulse();
+  }
+
+  function getMyTeam() {
+    if (!isEditor()) return null;
+    const me = editorName();
+    return (data.teams || []).find(t => (t.members || []).includes(me));
+  }
+
+  function renderTeamPulse() {
+    const wrap = document.getElementById('teamPulseWrap');
+    if (!wrap) return;
+    if (!isEditor()) { wrap.style.display = 'none'; return; }
+    const myTeam = getMyTeam();
+    if (!myTeam) { wrap.style.display = 'none'; return; } // individuals have no teammates
+    const teammates = (myTeam.members || []).filter(m => m !== editorName());
+    if (!teammates.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+
+    const pk = activePeriodKey();
+    const periodRowsAll = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
+    const teamColor = myTeam.id === 't_siam' ? '#4a9eff' : myTeam.id === 't_riad' ? '#ff9347' : 'var(--green)';
+
+    // Compute teammate totals
+    const mateData = teammates.map(name => {
+      const myRows = periodRowsAll.filter(r => r.editor === name);
+      const done = myRows.filter(r => r.status === 'Done');
+      const pipe = myRows.filter(r => r.status !== 'Done');
+      const donePts = done.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+      const pipePts = pipe.reduce((s,r) => s + (r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue)), 0);
+      return { name, rows: myRows, done, pipe, donePts, pipePts };
+    });
+    const teamPipePts = mateData.reduce((s,m) => s + m.pipePts, 0);
+    const teamDonePts = mateData.reduce((s,m) => s + m.donePts, 0);
+
+    // Toggle bar
+    let html = `<div class="pulse-toggle ${teamPulseOpen?'open':''}" onclick="toggleTeamPulse()">
+      <span>👥 Team Pulse</span>
+      <span style="opacity:0.5">·</span>
+      <span style="color:var(--text)">${escapeHtml(myTeam.name)}</span>
+      <span class="pulse-arrow">▾</span>
+    </div>`;
+
+    if (teamPulseOpen) {
+      html += `<div class="pulse-panel">
+        <div class="pulse-header">
+          <span class="pulse-header-title">Your teammates this period</span>
+          <span class="pulse-header-sub">${teamDonePts} done · ${teamPipePts} in pipeline</span>
+        </div>`;
+      mateData.forEach(m => {
+        const initial = m.name[0].toUpperCase();
+        // Show top 5 projects, ordered: pipeline first (active work), then done
+        const orderedRows = [...m.pipe, ...m.done].slice(0, 8);
+        let projHtml = '';
+        if (!orderedRows.length) {
+          projHtml = `<div class="pulse-empty">No projects this period yet</div>`;
+        } else {
+          projHtml = orderedRows.map(r => {
+            // Project name: from first raw footage entry (named link), or fallback
+            let projectName = '';
+            if (r.rawFile) {
+              const first = parseLinks(r.rawFile)[0];
+              if (first) {
+                const parsed = parseNamedLink(first);
+                projectName = parsed ? (parsed.name || parsed.url) : first;
+              }
+            }
+            if (!projectName) projectName = `Untitled (${r.status || 'Assigned'})`;
+            // Final video link (clickable) — but only show as a small icon, no full URL
+            let finalLink = '';
+            if (r.finalVideo) {
+              const first = parseLinks(r.finalVideo)[0];
+              if (first) {
+                const parsed = parseNamedLink(first);
+                const url = parsed ? parsed.url : first;
+                if (url) finalLink = ` <a href="${escapeAttr(linkify(url))}" target="_blank" title="Final video" onclick="event.stopPropagation()" style="color:var(--green);text-decoration:none">🎬</a>`;
+              }
+            }
+            const pts = r.points!=null ? Number(r.points) : pointsFromRevenue(r.revenue);
+            const isDone = r.status === 'Done';
+            const statusBadge = `<span class="status-pill ${statusClass(r.status||'Assigned')}" style="font-size:9px;padding:2px 7px">${r.status||'Assigned'}</span>`;
+            return `<div class="pulse-project">
+              <span class="pulse-project-name">${escapeHtml(truncate(projectName, 50))}${finalLink}</span>
+              ${statusBadge}
+              <span class="pulse-project-pts ${isDone?'is-done':''}">${pts} pts</span>
+            </div>`;
+          }).join('');
+        }
+        const pipeStat = m.pipePts > 0 ? ` <span class="pts-pipe">(+${m.pipePts} in pipeline)</span>` : '';
+        html += `<div class="pulse-member">
+          <div class="pulse-member-avatar" style="background:linear-gradient(135deg, ${teamColor}, ${teamColor}cc)">${escapeHtml(initial)}</div>
+          <div class="pulse-projects">
+            <div class="pulse-member-name">${escapeHtml(m.name)}</div>
+            <div class="pulse-member-stats">
+              ${m.rows.length} project${m.rows.length===1?'':'s'} · <span class="pts-done">${m.donePts} pts done</span>${pipeStat}
+            </div>
+            <div style="margin-top:8px">${projHtml}</div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    wrap.innerHTML = html;
   }
 
   function renderCRMFlat() {
