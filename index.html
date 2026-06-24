@@ -419,7 +419,7 @@
   .pulse-project-pts.is-done { color: var(--green); }
   .pulse-empty { text-align: center; color: var(--text-muted); font-size: 12px; padding: 14px; font-style: italic; }
 
-  /* Competition banner + robot mascot */
+  /* Competition banner */
   .pulse-compete {
     display: flex; align-items: center; gap: 16px;
     padding: 16px 20px; margin-bottom: 16px;
@@ -432,39 +432,56 @@
   .pulse-compete.lead-mid { border-color: rgba(94,231,176,0.35); background: linear-gradient(100deg, rgba(94,231,176,0.05), rgba(5,13,10,0.5)); }
   .pulse-compete.behind { border-color: rgba(255,147,71,0.35); background: linear-gradient(100deg, rgba(255,147,71,0.05), rgba(5,13,10,0.5)); }
   .pulse-compete.tied { border-color: rgba(74,158,255,0.35); }
-
-  .robot {
-    width: 56px; height: 64px; flex-shrink: 0; position: relative;
-    cursor: pointer; user-select: none;
-    transition: transform 0.5s cubic-bezier(0.34,1.4,0.64,1);
-    transform: translate(var(--rx, 0px), var(--ry, 0px));
-  }
-  .robot svg { width: 100%; height: 100%; display: block; overflow: visible; }
-  .robot .robot-body { animation: robotFloat 3s ease-in-out infinite; transform-origin: center; }
-  @keyframes robotFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-  .robot .robot-flame { animation: flameFlicker 0.4s ease-in-out infinite alternate; transform-origin: center top; }
-  @keyframes flameFlicker { 0% { transform: scaleY(0.85); opacity:0.8; } 100% { transform: scaleY(1.1); opacity:1; } }
-  .robot.angry .robot-body { animation: robotShake 0.35s ease-in-out infinite; }
-  @keyframes robotShake { 0%,100%{transform:translateX(0) rotate(0)} 25%{transform:translateX(-3px) rotate(-4deg)} 75%{transform:translateX(3px) rotate(4deg)} }
-
+  .pulse-compete .cmp-emoji { font-size: 30px; flex-shrink: 0; }
   .pulse-compete-msg { flex: 1; }
   .pulse-compete-msg .cmp-headline { font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--font-display); letter-spacing: -0.01em; line-height: 1.3; }
   .pulse-compete-msg .cmp-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
   .cmp-gap-bar { margin-top: 10px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
   .cmp-gap-fill { height: 100%; border-radius: 100px; transition: width 0.6s var(--ease-out); }
 
-  .robot-bubble {
-    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) scale(0.9);
-    background: var(--text); color: #052e20;
-    font-size: 11px; font-weight: 600; padding: 7px 11px; border-radius: 10px;
-    max-width: 240px; width: max-content;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
-    z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,0.4); text-align: center;
+  /* Free-floating robot mascot */
+  #floatRobot {
+    position: fixed; width: 72px; height: 86px; z-index: 200;
+    pointer-events: auto; cursor: pointer; user-select: none;
+    will-change: transform; transition: transform 0.12s linear;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45));
   }
-  .robot-bubble::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--text); }
-  .robot-bubble.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  .robot-bubble.angry { background: var(--red); color: #fff; }
-  .robot-bubble.angry::after { border-top-color: var(--red); }
+  #floatRobot svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  #floatRobot .rb-hover { animation: rbBob 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes rbBob { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
+  #floatRobot .rb-flame { transform-origin: 50% 0%; animation: rbFlame 0.18s ease-in-out infinite alternate; }
+  @keyframes rbFlame { 0% { transform: scaleY(0.8) scaleX(1.05); opacity:0.85; } 100% { transform: scaleY(1.25) scaleX(0.85); opacity:1; } }
+  #floatRobot .rb-flame2 { transform-origin: 50% 0%; animation: rbFlame2 0.27s ease-in-out infinite alternate; }
+  @keyframes rbFlame2 { 0% { transform: scaleY(1.1) scaleX(0.8); opacity:0.7; } 100% { transform: scaleY(0.7) scaleX(1.0); opacity:0.95; } }
+  #floatRobot .rb-antenna-l { transform-origin: 28px 30px; animation: rbAnt 3s ease-in-out infinite; }
+  #floatRobot .rb-antenna-r { transform-origin: 60px 30px; animation: rbAnt 3.4s ease-in-out infinite reverse; }
+  @keyframes rbAnt { 0%,100%{transform:rotate(-3deg)} 50%{transform:rotate(3deg)} }
+  #floatRobot .rb-eye { animation: rbBlink 4s infinite; transform-origin: center; }
+  @keyframes rbBlink { 0%,92%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
+  #floatRobot.angry .rb-hover { animation: rbShake 0.28s ease-in-out infinite; }
+  @keyframes rbShake { 0%,100%{transform:translate(0,0) rotate(0)} 20%{transform:translate(-3px,1px) rotate(-5deg)} 60%{transform:translate(3px,-1px) rotate(5deg)} }
+  #floatRobot .rb-normal-face { transition: opacity 0.15s; }
+  #floatRobot .rb-angry-face { opacity: 0; transition: opacity 0.15s; }
+  #floatRobot.angry .rb-normal-face { opacity: 0; }
+  #floatRobot.angry .rb-angry-face { opacity: 1; }
+
+  #floatRobotBubble {
+    position: fixed; z-index: 201; max-width: 220px; width: max-content;
+    background: var(--text); color: #052e20;
+    font-size: 11.5px; font-weight: 600; line-height: 1.35;
+    padding: 9px 13px; border-radius: 12px; text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    opacity: 0; pointer-events: none; transform: scale(0.9);
+    transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+    font-family: var(--font-ui);
+  }
+  #floatRobotBubble.show { opacity: 1; transform: scale(1); }
+  #floatRobotBubble.angry { background: var(--red); color: #fff; }
+  #floatRobotBubble::after {
+    content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: var(--text);
+  }
+  #floatRobotBubble.angry::after { border-top-color: var(--red); }
 
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rate-input { -moz-appearance: textfield; }
@@ -1356,6 +1373,7 @@
   }
   function logout() {
     stopAutoRefresh(); clearSession();
+    if (typeof stopFloatRobot === 'function') stopFloatRobot();
     document.getElementById('mainApp').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminPass').value = '';
@@ -1421,6 +1439,8 @@
     try { localStorage.setItem('arstudioss_page', page); } catch(e) {}
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
+    // Robot only lives on the CRM page
+    if (page !== 'crm') stopFloatRobot();
     renderAll();
   }
   function allEditors() {
@@ -1558,117 +1578,293 @@
   function toggleTeamPulse() {
     teamPulseOpen = !teamPulseOpen;
     renderTeamPulse();
-    if (teamPulseOpen) setTimeout(initRobot, 50);
+    if (teamPulseOpen) startFloatRobot(); else stopFloatRobot();
   }
 
-  // Cute astronaut robot SVG
+  // ===== Free-floating animated robot mascot =====
+  // Pixel-art astronaut robot with happy + angry faces, animated flame, eye tracking.
   function robotSVG() {
-    return `<svg viewBox="0 0 100 116" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 88 104" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="rbHelmet" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#f4f7fb"/><stop offset="1" stop-color="#c9d4e0"/>
+          <stop offset="0" stop-color="#fbfdff"/><stop offset="0.6" stop-color="#dde6f0"/><stop offset="1" stop-color="#b9c6d6"/>
         </linearGradient>
-        <linearGradient id="rbFlame" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#2a7fd4" stop-opacity="0"/>
+        <linearGradient id="rbFlameA" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff3b0"/><stop offset="0.4" stop-color="#ffb53b"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/>
         </linearGradient>
-        <radialGradient id="rbEye" cx="0.5" cy="0.4" r="0.6">
-          <stop offset="0" stop-color="#6fc4ff"/><stop offset="0.7" stop-color="#1f6fd0"/><stop offset="1" stop-color="#0a3a78"/>
+        <linearGradient id="rbFlameB" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff8d6"/><stop offset="1" stop-color="#ffb53b" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="rbEyeG" cx="0.5" cy="0.4" r="0.65">
+          <stop offset="0" stop-color="#aef0ff"/><stop offset="0.5" stop-color="#34c8ff"/><stop offset="1" stop-color="#1488d0"/>
         </radialGradient>
       </defs>
-      <g class="robot-flame">
-        <ellipse cx="50" cy="104" rx="8" ry="14" fill="url(#rbFlame)"/>
-        <ellipse cx="50" cy="100" rx="4" ry="9" fill="#bdecff" opacity="0.85"/>
+
+      <!-- rocket flame (behind body, at bottom) -->
+      <g transform="translate(44 78)">
+        <g class="rb-flame2"><path d="M-9 0 Q-5 26 0 34 Q5 26 9 0 Q0 6 -9 0Z" fill="url(#rbFlameA)"/></g>
+        <g class="rb-flame"><path d="M-5 0 Q-3 16 0 22 Q3 16 5 0 Q0 4 -5 0Z" fill="url(#rbFlameB)"/></g>
       </g>
-      <g class="robot-body">
-        <ellipse cx="30" cy="82" rx="7" ry="11" fill="#e3e9f0" transform="rotate(-18 30 82)"/>
-        <ellipse cx="70" cy="82" rx="7" ry="11" fill="#e3e9f0" transform="rotate(18 70 82)"/>
-        <rect x="34" y="74" width="32" height="16" rx="8" fill="#d2dae4"/>
-        <ellipse cx="50" cy="46" rx="34" ry="36" fill="url(#rbHelmet)"/>
-        <ellipse cx="50" cy="44" rx="26" ry="22" fill="#2b3442"/>
-        <ellipse cx="50" cy="40" rx="24" ry="16" fill="#3a4556" opacity="0.6"/>
-        <circle class="rb-eye" cx="40" cy="44" r="7" fill="url(#rbEye)"/>
-        <circle class="rb-eye" cx="60" cy="44" r="7" fill="url(#rbEye)"/>
-        <circle cx="42" cy="42" r="2.2" fill="#dff2ff"/>
-        <circle cx="62" cy="42" r="2.2" fill="#dff2ff"/>
-        <path class="rb-mouth" d="M44 58 Q50 63 56 58" stroke="#9fb0c4" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <ellipse cx="30" cy="30" rx="8" ry="5" fill="#fff" opacity="0.5" transform="rotate(-25 30 30)"/>
+
+      <g class="rb-hover">
+        <!-- antennae -->
+        <g class="rb-antenna-l"><rect x="25" y="10" width="4" height="18" rx="2" fill="#cdd7e3"/><circle cx="27" cy="8" r="5" fill="#ff7a2e"/><circle cx="25.5" cy="6.5" r="1.6" fill="#ffd0a8"/></g>
+        <g class="rb-antenna-r"><rect x="59" y="10" width="4" height="18" rx="2" fill="#cdd7e3"/><circle cx="61" cy="8" r="5" fill="#ff7a2e"/><circle cx="59.5" cy="6.5" r="1.6" fill="#ffd0a8"/></g>
+
+        <!-- side ears/thrusters -->
+        <rect x="10" y="42" width="12" height="20" rx="6" fill="#cdd7e3"/>
+        <rect x="66" y="42" width="12" height="20" rx="6" fill="#cdd7e3"/>
+        <rect x="13" y="46" width="6" height="12" rx="3" fill="#9fb0c4"/>
+        <rect x="69" y="46" width="6" height="12" rx="3" fill="#9fb0c4"/>
+
+        <!-- helmet -->
+        <rect x="16" y="22" width="56" height="56" rx="20" fill="url(#rbHelmet)" stroke="#1c2533" stroke-width="2.5"/>
+        <!-- face screen -->
+        <rect x="24" y="30" width="40" height="36" rx="13" fill="#1a2230" stroke="#0d131d" stroke-width="2"/>
+
+        <!-- NORMAL face -->
+        <g class="rb-normal-face">
+          <g class="rb-eye"><ellipse class="rb-eye-l" cx="36" cy="46" rx="5" ry="6.5" fill="url(#rbEyeG)"/><circle cx="34.5" cy="43.5" r="1.6" fill="#eaffff"/></g>
+          <g class="rb-eye"><ellipse class="rb-eye-r" cx="52" cy="46" rx="5" ry="6.5" fill="url(#rbEyeG)"/><circle cx="50.5" cy="43.5" r="1.6" fill="#eaffff"/></g>
+          <path d="M40 57 Q44 61 48 57" stroke="#34c8ff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        </g>
+
+        <!-- ANGRY face -->
+        <g class="rb-angry-face">
+          <rect x="26" y="32" width="36" height="32" rx="11" fill="#5a0d0d"/>
+          <path d="M30 40 L42 46 L30 47Z" fill="#ff3b3b"/>
+          <path d="M58 40 L46 46 L58 47Z" fill="#ff3b3b"/>
+          <ellipse cx="37" cy="48" rx="4.5" ry="5" fill="#7df9ff"/>
+          <ellipse cx="51" cy="48" rx="4.5" ry="5" fill="#7df9ff"/>
+          <path d="M38 60 Q44 54 50 60 Q44 58 38 60Z" fill="#ff8c1a" stroke="#d65a00" stroke-width="1"/>
+        </g>
+
+        <!-- helmet shine -->
+        <ellipse cx="30" cy="32" rx="7" ry="4" fill="#fff" opacity="0.55" transform="rotate(-25 30 32)"/>
+        <!-- little chest lights -->
+        <circle cx="34" cy="73" r="2.4" fill="#ffce4a"/>
+        <circle cx="54" cy="73" r="2.4" fill="#67e8a0"/>
       </g>
     </svg>`;
   }
 
-  let robotBubbleTimer = null, robotMsgIndex = 0, robotAngryActive = false;
-  const robotExtraMsgs = [
+  // Floating robot state
+  const robotState = {
+    x: 0, y: 0,        // current position (px, fixed)
+    tx: 0, ty: 0,      // target position
+    vx: 0, vy: 0,      // velocity
+    el: null, bubble: null,
+    raf: null, wanderTimer: null, msgTimer: null,
+    angry: false, angryUntil: 0,
+    chaseStreak: 0, lastFleeAt: 0,
+    bounds: null,
+  };
+
+  const robotMotivation = { headline: '', msg: '' };
+
+  const robotIdleMsgs = [
     "Pssst... check your pipeline.",
     "Your teammates are watching 👀",
-    "Every point counts!",
-    "Go finish something 💪",
+    "Every point counts, you know.",
+    "Go finish something already 💪",
     "Tick tock... deadlines!",
+    "I believe in you. Mostly.",
+    "Less scrolling, more editing!",
+  ];
+  const robotAngryMsgs = [
+    "Hey! Leave me alone! 😠",
+    "Don't touch me, weirdo!",
+    "Fuck off and go edit something!",
+    "Stop poking me! 💢",
+    "Go get a girlfriend, not me!",
+    "Hands OFF, I'm not a toy!",
+    "Try that again, I dare you 😤",
+    "I'm WORKING. Back off!",
   ];
 
-  function initRobot() {
-    const robot = document.getElementById('pulseRobot');
-    const bubble = document.getElementById('robotBubble');
-    if (!robot || !bubble) return;
-    robotAngryActive = false;
+  function getPulseBounds() {
+    const wrap = document.getElementById('teamPulseWrap');
+    if (!wrap) return null;
+    const r = wrap.getBoundingClientRect();
+    // Constrain robot within the pulse section area (plus a little above)
+    return {
+      left: r.left + 10,
+      right: r.right - 80,
+      top: r.top - 30,
+      bottom: r.bottom - 80
+    };
+  }
 
-    // Show the main message shortly after open
-    setTimeout(() => { if (!robotAngryActive) bubble.classList.add('show'); }, 600);
-    setTimeout(() => { if (!robotAngryActive) bubble.classList.remove('show'); }, 5000);
+  function startFloatRobot() {
+    stopFloatRobot();
+    // Create robot element
+    let el = document.getElementById('floatRobot');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'floatRobot';
+      el.innerHTML = robotSVG();
+      el.addEventListener('mousedown', onRobotGrab);
+      document.body.appendChild(el);
+    }
+    let bubble = document.getElementById('floatRobotBubble');
+    if (!bubble) {
+      bubble = document.createElement('div');
+      bubble.id = 'floatRobotBubble';
+      document.body.appendChild(bubble);
+    }
+    robotState.el = el;
+    robotState.bubble = bubble;
+    robotState.angry = false;
 
-    // Rotate playful messages every so often
-    if (robotBubbleTimer) clearInterval(robotBubbleTimer);
-    robotBubbleTimer = setInterval(() => {
-      if (robotAngryActive) return;
-      const b = document.getElementById('robotBubble');
-      const r = document.getElementById('pulseRobot');
-      if (!b || !r) { clearInterval(robotBubbleTimer); return; }
-      // Only if pulse still open and visible
-      if (!teamPulseOpen) { clearInterval(robotBubbleTimer); return; }
-      b.textContent = robotExtraMsgs[robotMsgIndex % robotExtraMsgs.length];
-      robotMsgIndex++;
-      b.classList.add('show');
-      setTimeout(() => { if (!robotAngryActive && b) b.classList.remove('show'); }, 3500);
-    }, 9000);
+    const b = getPulseBounds();
+    robotState.bounds = b;
+    if (b) {
+      robotState.x = (b.left + b.right) / 2;
+      robotState.y = b.top + 20;
+      robotState.tx = robotState.x;
+      robotState.ty = robotState.y;
+    }
 
-    // Subtle cursor follow — robot drifts max ~12px across the whole screen
-    if (!window._robotMoveHandler) {
-      window._robotMoveHandler = (e) => {
-        const rob = document.getElementById('pulseRobot');
-        if (!rob) return;
-        const maxShift = 12; // px — very slight
-        const rx = ((e.clientX / window.innerWidth) - 0.5) * 2 * maxShift;
-        const ry = ((e.clientY / window.innerHeight) - 0.5) * 2 * (maxShift * 0.6);
-        rob.style.setProperty('--rx', rx.toFixed(1) + 'px');
-        rob.style.setProperty('--ry', ry.toFixed(1) + 'px');
+    // Cursor-dodge handler
+    if (!window._robotCursorHandler) {
+      window._robotCursorHandler = (e) => {
+        if (!robotState.el) return;
+        const dx = robotState.x + 36 - e.clientX;
+        const dy = robotState.y + 43 - e.clientY;
+        const dist = Math.hypot(dx, dy);
+        // If cursor is close, flee (harder to catch)
+        if (dist < 90) {
+          const force = (90 - dist) / 90;
+          robotState.vx += (dx / (dist||1)) * force * 6;
+          robotState.vy += (dy / (dist||1)) * force * 6;
+          // Track chase attempts
+          const now = Date.now();
+          if (now - robotState.lastFleeAt < 600) robotState.chaseStreak++;
+          else robotState.chaseStreak = Math.max(0, robotState.chaseStreak - 1);
+          robotState.lastFleeAt = now;
+          // If chased hard, get angry
+          if (robotState.chaseStreak > 14 && !robotState.angry && now > robotState.angryUntil) {
+            triggerRobotAngry();
+          }
+        }
       };
-      document.addEventListener('mousemove', window._robotMoveHandler);
+      document.addEventListener('mousemove', window._robotCursorHandler);
+    }
+
+    // Animation loop
+    const loop = () => {
+      stepRobot();
+      robotState.raf = requestAnimationFrame(loop);
+    };
+    robotState.raf = requestAnimationFrame(loop);
+
+    // Wander: pick new targets periodically
+    robotState.wanderTimer = setInterval(pickWanderTarget, 3200);
+    pickWanderTarget();
+
+    // Messages: show motivation first (longer), then rotate idle
+    setTimeout(() => showRobotBubble(robotMotivation.msg || "Let's get to work!", false, 7000), 800);
+    let idleIdx = 0;
+    robotState.msgTimer = setInterval(() => {
+      if (robotState.angry) return;
+      if (!teamPulseOpen) return;
+      // Occasionally float near the cursor to deliver a line
+      showRobotBubble(robotIdleMsgs[idleIdx % robotIdleMsgs.length], false, 6000);
+      idleIdx++;
+    }, 11000);
+  }
+
+  function stopFloatRobot() {
+    if (robotState.raf) cancelAnimationFrame(robotState.raf);
+    if (robotState.wanderTimer) clearInterval(robotState.wanderTimer);
+    if (robotState.msgTimer) clearInterval(robotState.msgTimer);
+    robotState.raf = robotState.wanderTimer = robotState.msgTimer = null;
+    const el = document.getElementById('floatRobot');
+    const b = document.getElementById('floatRobotBubble');
+    if (el) el.remove();
+    if (b) b.remove();
+    robotState.el = null; robotState.bubble = null;
+  }
+
+  function pickWanderTarget() {
+    const b = getPulseBounds();
+    if (!b) return;
+    robotState.bounds = b;
+    robotState.tx = b.left + Math.random() * Math.max(40, (b.right - b.left));
+    robotState.ty = b.top + Math.random() * Math.max(40, (b.bottom - b.top));
+  }
+
+  function stepRobot() {
+    const s = robotState;
+    if (!s.el) return;
+    const b = s.bounds || getPulseBounds();
+    if (!b) return;
+    // Spring toward target
+    const ax = (s.tx - s.x) * 0.012;
+    const ay = (s.ty - s.y) * 0.012;
+    s.vx += ax; s.vy += ay;
+    // Damping
+    s.vx *= 0.92; s.vy *= 0.92;
+    // Clamp speed
+    const sp = Math.hypot(s.vx, s.vy);
+    const maxSp = 7;
+    if (sp > maxSp) { s.vx = s.vx/sp*maxSp; s.vy = s.vy/sp*maxSp; }
+    s.x += s.vx; s.y += s.vy;
+    // Keep inside bounds (bounce gently)
+    if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx)*0.5; }
+    if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx)*0.5; }
+    if (s.y < b.top) { s.y = b.top; s.vy = Math.abs(s.vy)*0.5; }
+    if (s.y > b.bottom) { s.y = b.bottom; s.vy = -Math.abs(s.vy)*0.5; }
+    // Tilt based on horizontal velocity
+    const tilt = Math.max(-12, Math.min(12, s.vx * 1.5));
+    s.el.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) rotate(${tilt.toFixed(1)}deg)`;
+    // Move bubble above robot
+    if (s.bubble && s.bubble.classList.contains('show')) {
+      s.bubble.style.left = (s.x + 36 - s.bubble.offsetWidth/2) + 'px';
+      s.bubble.style.top = (s.y - s.bubble.offsetHeight - 8) + 'px';
     }
   }
 
-  const robotAngryMsgs = [
-    "HEY! Don't touch me! 😠",
-    "Stop poking me! 💢",
-    "I'm WORKING here, hands off!",
-    "Do that again and I leave 😤",
-    "Rude! I'm trying to motivate you!",
-  ];
-  function robotAngry(e) {
-    if (e) e.stopPropagation();
-    const robot = document.getElementById('pulseRobot');
-    const bubble = document.getElementById('robotBubble');
-    if (!robot || !bubble) return;
-    robotAngryActive = true;
-    robot.classList.add('angry');
-    bubble.classList.add('angry');
-    bubble.textContent = robotAngryMsgs[Math.floor(Math.random() * robotAngryMsgs.length)];
-    bubble.classList.add('show');
-    clearTimeout(robotBubbleTimer);
+  function showRobotBubble(text, angry, duration) {
+    const s = robotState;
+    if (!s.bubble) return;
+    s.bubble.textContent = text;
+    s.bubble.classList.toggle('angry', !!angry);
+    s.bubble.classList.add('show');
+    // Position immediately
+    s.bubble.style.left = (s.x + 36 - s.bubble.offsetWidth/2) + 'px';
+    s.bubble.style.top = (s.y - s.bubble.offsetHeight - 8) + 'px';
+    clearTimeout(s._bubbleHide);
+    s._bubbleHide = setTimeout(() => { if (s.bubble) s.bubble.classList.remove('show'); }, duration || 6000);
+  }
+
+  function onRobotGrab(e) {
+    e.preventDefault(); e.stopPropagation();
+    // A direct click/grab attempt — dart away fast
+    const s = robotState;
+    const b = getPulseBounds(); if (!b) return;
+    // Jump to a random far corner
+    s.tx = (s.x < (b.left+b.right)/2) ? b.right : b.left;
+    s.ty = (s.y < (b.top+b.bottom)/2) ? b.bottom : b.top;
+    s.vx += (s.tx - s.x) * 0.08;
+    s.vy += (s.ty - s.y) * 0.08;
+    s.chaseStreak += 6;
+    if (s.chaseStreak > 10 && !s.angry) triggerRobotAngry();
+    else showRobotBubble("Nope! Too slow 😏", false, 2000);
+  }
+
+  function triggerRobotAngry() {
+    const s = robotState;
+    if (!s.el) return;
+    s.angry = true;
+    s.angryUntil = Date.now() + 3000;
+    s.el.classList.add('angry');
+    showRobotBubble(robotAngryMsgs[Math.floor(Math.random()*robotAngryMsgs.length)], true, 2800);
     setTimeout(() => {
-      robot.classList.remove('angry');
-      bubble.classList.remove('angry');
-      bubble.classList.remove('show');
-      robotAngryActive = false;
-    }, 2500);
+      if (s.el) s.el.classList.remove('angry');
+      s.angry = false;
+      s.chaseStreak = 0;
+    }, 2800);
   }
 
   function getMyTeam() {
@@ -1680,11 +1876,11 @@
   function renderTeamPulse() {
     const wrap = document.getElementById('teamPulseWrap');
     if (!wrap) return;
-    if (!isEditor()) { wrap.style.display = 'none'; return; }
+    if (!isEditor()) { wrap.style.display = 'none'; stopFloatRobot(); return; }
     const myTeam = getMyTeam();
-    if (!myTeam) { wrap.style.display = 'none'; return; } // individuals have no teammates
+    if (!myTeam) { wrap.style.display = 'none'; stopFloatRobot(); return; } // individuals have no teammates
     const teammates = (myTeam.members || []).filter(m => m !== editorName());
-    if (!teammates.length) { wrap.style.display = 'none'; return; }
+    if (!teammates.length) { wrap.style.display = 'none'; stopFloatRobot(); return; }
     wrap.style.display = 'block';
 
     const pk = activePeriodKey();
@@ -1774,6 +1970,10 @@
     const myPct = Math.round((myDone / totalForBar) * 100);
     const barColor = gap >= 0 ? (cmpClass === 'lead-strong' ? 'var(--gold)' : 'var(--green)') : 'var(--amber)';
 
+    // Store for the floating robot mascot
+    robotMotivation.headline = headline.replace(/<[^>]+>/g, '');
+    robotMotivation.msg = robotMsg;
+
     // Toggle bar
     let html = `<div class="pulse-toggle ${teamPulseOpen?'open':''}" onclick="toggleTeamPulse()">
       <span>👥 Team Pulse</span>
@@ -1784,12 +1984,10 @@
 
     if (teamPulseOpen) {
       html += `<div class="pulse-panel">`;
-      // Competition banner with robot
+      // Competition banner (robot now floats freely, not inline)
+      const cmpEmoji = cmpClass === 'lead-strong' ? '🏆' : cmpClass === 'lead-mid' ? '💪' : cmpClass === 'behind' ? '🔥' : '⚡';
       html += `<div class="pulse-compete ${cmpClass}">
-        <div class="robot" id="pulseRobot" onclick="robotAngry(event)">
-          <div class="robot-bubble" id="robotBubble">${escapeHtml(robotMsg)}</div>
-          ${robotSVG()}
-        </div>
+        <div class="cmp-emoji">${cmpEmoji}</div>
         <div class="pulse-compete-msg">
           <div class="cmp-headline">${headline}</div>
           <div class="cmp-sub">${sub}</div>
@@ -1854,7 +2052,9 @@
       html += `</div>`;
     }
     wrap.innerHTML = html;
-    if (teamPulseOpen) setTimeout(initRobot, 50);
+    // Robot is managed by toggle (start/stop), not re-created on every re-render.
+    // But if pulse is open and robot somehow missing (e.g. after data refresh re-render), restart it.
+    if (teamPulseOpen && !document.getElementById('floatRobot')) startFloatRobot();
   }
 
   function renderCRMFlat() {
