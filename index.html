@@ -484,6 +484,51 @@
   }
   #floatRobotBubble.angry::after { border-top-color: var(--red); }
 
+  /* Admin corner robot + summary panel */
+  #adminRobot {
+    position: fixed; width: 64px; height: 76px; z-index: 200;
+    right: 28px; bottom: 28px; cursor: pointer; user-select: none;
+    will-change: transform; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+  }
+  #adminRobot svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  #adminRobotHint {
+    position: fixed; right: 100px; bottom: 48px; z-index: 199;
+    background: var(--text); color: #052e20; font-size: 11px; font-weight: 600;
+    padding: 7px 11px; border-radius: 10px; white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    font-family: var(--font-ui);
+  }
+  #adminRobotHint.show { opacity: 1; }
+  #adminRobotHint::after { content:''; position:absolute; right:-5px; top:50%; transform:translateY(-50%); border:6px solid transparent; border-left-color: var(--text); }
+
+  .arobot-overlay {
+    position: fixed; inset: 0; z-index: 400; background: rgba(2,8,5,0.55);
+    backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .arobot-overlay.show { opacity: 1; pointer-events: auto; }
+  .arobot-panel {
+    position: fixed; right: 28px; bottom: 28px; z-index: 401;
+    width: 460px; max-width: calc(100vw - 56px); max-height: 78vh; overflow-y: auto;
+    background: var(--surface-2); border: 1px solid var(--border-bright);
+    border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+    transform: translateY(20px) scale(0.97); opacity: 0; transition: transform 0.3s var(--ease-out), opacity 0.3s;
+  }
+  .arobot-overlay.show .arobot-panel { transform: translateY(0) scale(1); opacity: 1; }
+  .arobot-panel h3 { font-size: 18px; font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; margin: 0; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .arobot-panel .ar-close { margin-left: auto; cursor: pointer; color: var(--text-muted); font-size: 20px; line-height: 1; }
+  .arobot-panel .ar-close:hover { color: var(--text); }
+  .ar-section { margin-top: 18px; }
+  .ar-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 9px; display: flex; align-items: center; gap: 6px; }
+  .ar-card { display: flex; align-items: center; gap: 11px; padding: 10px 12px; background: rgba(5,13,10,0.4); border: 1px solid var(--border); border-radius: 11px; margin-bottom: 7px; }
+  .ar-avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .ar-card-main { flex: 1; min-width: 0; }
+  .ar-card-name { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--font-display); }
+  .ar-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ar-card-right { font-size: 11px; font-weight: 600; text-align: right; flex-shrink: 0; }
+  .ar-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 100px; letter-spacing: 0.03em; }
+  .ar-load-idle { color: #8aa3b0; } .ar-load-light { color: var(--green); } .ar-load-busy { color: var(--amber); } .ar-load-over { color: var(--red); }
+  .ar-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 8px 0; }
+
   .rate-input::-webkit-outer-spin-button, .rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rate-input { -moz-appearance: textfield; }
 
@@ -1375,6 +1420,7 @@
   function logout() {
     stopAutoRefresh(); clearSession();
     if (typeof stopFloatRobot === 'function') stopFloatRobot();
+    if (typeof stopAdminRobot === 'function') { stopAdminRobot(); closeAdminSummary(); }
     document.getElementById('mainApp').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminPass').value = '';
@@ -1441,7 +1487,7 @@
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
     // Robot only lives on the CRM page
-    if (page !== 'crm') stopFloatRobot();
+    if (page !== 'crm') { stopFloatRobot(); stopAdminRobot(); closeAdminSummary(); }
     renderAll();
   }
   function allEditors() {
@@ -1558,6 +1604,7 @@
       flat.style.display = 'none';
       grouped.style.display = 'block';
       renderCRMGrouped();
+      if (currentPage === 'crm') startAdminRobot(); else stopAdminRobot();
     } else {
       flat.style.display = '';
       grouped.style.display = 'none';
@@ -1659,6 +1706,7 @@
     angry: false, angryUntil: 0,
     chaseStreak: 0, lastFleeAt: 0,
     bounds: null,
+    mouseX: 0, mouseY: 0, mouseSeen: false,
   };
 
   const robotMotivation = { headline: '', msg: '' };
@@ -1729,29 +1777,29 @@
     // Apply initial transform immediately so it's visible on first paint
     el.style.transform = `translate(${robotState.x}px, ${robotState.y}px)`;
 
-    // Cursor-dodge handler
+    // Mouse awareness handler — store cursor pos; reactions happen in stepRobot
     if (!window._robotCursorHandler) {
       window._robotCursorHandler = (e) => {
+        robotState.mouseX = e.clientX;
+        robotState.mouseY = e.clientY;
+        robotState.mouseSeen = true;
         if (!robotState.el) return;
         const dx = robotState.x + 36 - e.clientX;
         const dy = robotState.y + 43 - e.clientY;
         const dist = Math.hypot(dx, dy);
-        // If cursor is close, dart away — wider radius, snappier
-        if (dist < 110) {
-          const force = (110 - dist) / 110;
-          robotState.vx += (dx / (dist||1)) * force * 9;
-          robotState.vy += (dy / (dist||1)) * force * 9;
-          // Steer the wander target away from the cursor too
-          const b = robotState.bounds;
-          if (b) {
-            robotState.tx = e.clientX > (b.left+b.right)/2 ? b.left : b.right;
-            robotState.ty = e.clientY > (b.top+b.bottom)/2 ? b.top : b.bottom;
-          }
+        // Only when the cursor gets quite close: a small quick sidestep (not a full escape)
+        if (dist < 55) {
+          const force = (55 - dist) / 55;
+          // Sidestep — mostly perpendicular nudge so it slips aside rather than bolting
+          const nx = (dx / (dist || 1));
+          const ny = (dy / (dist || 1));
+          robotState.vx += nx * force * 2.6 - ny * force * 1.8;
+          robotState.vy += ny * force * 2.6 + nx * force * 1.8;
           const now = Date.now();
-          if (now - robotState.lastFleeAt < 700) robotState.chaseStreak++;
+          if (now - robotState.lastFleeAt < 800) robotState.chaseStreak++;
           else robotState.chaseStreak = Math.max(0, robotState.chaseStreak - 1);
           robotState.lastFleeAt = now;
-          if (robotState.chaseStreak > 16 && !robotState.angry && now > robotState.angryUntil) {
+          if (robotState.chaseStreak > 20 && !robotState.angry && now > robotState.angryUntil) {
             triggerRobotAngry();
           }
         }
@@ -1793,6 +1841,219 @@
     robotState.el = null; robotState.bubble = null;
   }
 
+  // ===== Admin corner robot — parked, click for summary =====
+  const adminRobotState = { el: null, hint: null, raf: null, baseX: 0, baseY: 0, ox: 0, oy: 0, t: 0 };
+
+  function startAdminRobot() {
+    if (!isAdmin()) return;
+    if (document.getElementById('adminRobot')) return; // already there
+    const el = document.createElement('div');
+    el.id = 'adminRobot';
+    el.innerHTML = robotSVG();
+    el.title = 'Click for a team summary';
+    el.addEventListener('click', openAdminSummary);
+    document.body.appendChild(el);
+    const hint = document.createElement('div');
+    hint.id = 'adminRobotHint';
+    hint.textContent = 'Need a summary? Click me!';
+    document.body.appendChild(hint);
+    adminRobotState.el = el;
+    adminRobotState.hint = hint;
+    adminRobotState.t = 0;
+
+    // Show hint briefly on arrival
+    setTimeout(() => hint.classList.add('show'), 600);
+    setTimeout(() => hint.classList.remove('show'), 4500);
+
+    // Mouse-aware subtle lean
+    if (!window._adminRobotMouse) {
+      window._adminRobotMouse = (e) => {
+        const s = adminRobotState; if (!s.el) return;
+        const rect = s.el.getBoundingClientRect();
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        const dx = e.clientX - cx, dy = e.clientY - cy;
+        const d = Math.hypot(dx, dy) || 1;
+        // Lean a tiny bit toward cursor, max ~7px
+        const lean = Math.min(7, d / 40);
+        s.targetOx = (dx / d) * lean;
+        s.targetOy = (dy / d) * lean;
+      };
+      document.addEventListener('mousemove', window._adminRobotMouse);
+    }
+
+    // Gentle idle animation loop (float + ease toward lean target)
+    const loop = () => {
+      const s = adminRobotState; if (!s.el) return;
+      s.t += 0.03;
+      const floatY = Math.sin(s.t) * 4;
+      const floatX = Math.cos(s.t * 0.7) * 2;
+      s.ox += ((s.targetOx||0) - s.ox) * 0.08;
+      s.oy += ((s.targetOy||0) - s.oy) * 0.08;
+      const tilt = s.ox * 0.6;
+      s.el.style.transform = `translate(${(s.ox+floatX).toFixed(2)}px, ${(s.oy+floatY).toFixed(2)}px) rotate(${tilt.toFixed(2)}deg)`;
+      s.raf = requestAnimationFrame(loop);
+    };
+    adminRobotState.raf = requestAnimationFrame(loop);
+  }
+
+  function stopAdminRobot() {
+    const s = adminRobotState;
+    if (s.raf) cancelAnimationFrame(s.raf);
+    s.raf = null;
+    if (s.el) s.el.remove();
+    if (s.hint) s.hint.remove();
+    s.el = null; s.hint = null;
+  }
+
+  function openAdminSummary() {
+    if (adminRobotState.hint) adminRobotState.hint.classList.remove('show');
+    let overlay = document.getElementById('adminSummaryOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'adminSummaryOverlay';
+      overlay.className = 'arobot-overlay';
+      overlay.innerHTML = `<div class="arobot-panel" id="adminSummaryPanel" onclick="event.stopPropagation()"></div>`;
+      overlay.addEventListener('click', closeAdminSummary);
+      document.body.appendChild(overlay);
+    }
+    renderAdminSummary();
+    requestAnimationFrame(() => overlay.classList.add('show'));
+  }
+  function closeAdminSummary() {
+    const overlay = document.getElementById('adminSummaryOverlay');
+    if (overlay) { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 300); }
+  }
+
+  function daysBetween(aIso, bDate) {
+    const a = new Date(aIso).getTime();
+    return Math.floor((bDate.getTime() - a) / (1000*60*60*24));
+  }
+
+  function renderAdminSummary() {
+    const panel = document.getElementById('adminSummaryPanel');
+    if (!panel) return;
+    const pk = activePeriodKey();
+    const rows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk && r.editor);
+    const now = new Date();
+
+    // Build per-editor data
+    const editorOrder = [];
+    (data.teams || []).forEach(t => (t.members||[]).forEach(m => { if(!editorOrder.includes(m)) editorOrder.push(m); }));
+    (data.individuals || []).forEach(m => { if(!editorOrder.includes(m)) editorOrder.push(m); });
+
+    const teamColorOf = {};
+    (data.teams || []).forEach(t => {
+      const c = t.id==='t_siam' ? '#4a9eff' : t.id==='t_riad' ? '#ff9347' : '#5EE7B0';
+      (t.members||[]).forEach(m => teamColorOf[m] = c);
+    });
+    (data.individuals||[]).forEach(m => teamColorOf[m] = '#8aa3b0');
+
+    const projName = (r) => {
+      if (r.rawFile) {
+        const first = parseLinks(r.rawFile)[0];
+        if (first) { const p = parseNamedLink(first); return p ? (p.name||p.url) : first; }
+      }
+      return 'Untitled project';
+    };
+
+    const editors = editorOrder.map(name => {
+      const mine = rows.filter(r => r.editor === name);
+      const active = mine.filter(r => r.status && r.status !== 'Done');
+      const done = mine.filter(r => r.status === 'Done');
+      // Active projects with deadlines
+      const activeWithDl = active.filter(r => r.deadline).sort((a,b) => a.deadline.localeCompare(b.deadline));
+      const lastDl = activeWithDl.length ? activeWithDl[activeWithDl.length-1].deadline : null;
+      const points = done.reduce((s,r) => s + (r.points!=null?Number(r.points):pointsFromRevenue(r.revenue)), 0);
+      // Load level
+      let load = 'idle', loadCls = 'ar-load-idle';
+      if (active.length >= 5) { load = 'overloaded'; loadCls = 'ar-load-over'; }
+      else if (active.length >= 3) { load = 'busy'; loadCls = 'ar-load-busy'; }
+      else if (active.length >= 1) { load = 'light'; loadCls = 'ar-load-light'; }
+      return { name, mine, active, done, activeWithDl, lastDl, points, load, loadCls, color: teamColorOf[name]||'#8aa3b0' };
+    });
+
+    // Sort busiest first
+    editors.sort((a,b) => b.active.length - a.active.length);
+
+    const avatar = (e) => `<div class="ar-avatar" style="background:linear-gradient(135deg,${e.color},${e.color}cc)">${escapeHtml(e.name[0].toUpperCase())}</div>`;
+    const fmtDate = (iso) => iso ? new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+
+    // ---- Currently working (active editors, busiest first) ----
+    const working = editors.filter(e => e.active.length > 0);
+    let workingHtml = working.length ? working.map(e => {
+      const cur = e.activeWithDl[0] || e.active[0];
+      const busyDays = cur.createdAt ? Math.max(0, daysBetween(cur.createdAt, now)) : null;
+      const busyLabel = busyDays!=null ? `busy ${busyDays}d` : '';
+      const sub = `${escapeHtml(truncate(projName(cur),34))} · ${cur.status}`;
+      return `<div class="ar-card">
+        ${avatar(e)}
+        <div class="ar-card-main">
+          <div class="ar-card-name">${escapeHtml(e.name)} <span class="${e.loadCls}" style="font-size:10px;font-weight:600">· ${e.load}</span></div>
+          <div class="ar-card-sub">${sub}</div>
+        </div>
+        <div class="ar-card-right">
+          <div>${e.active.length} active</div>
+          <div style="color:var(--text-muted);margin-top:2px">${busyLabel}</div>
+        </div>
+      </div>`;
+    }).join('') : `<div class="ar-empty">No editors are actively working right now.</div>`;
+
+    // ---- Just finished (done this period, most recent first by deadline/created) ----
+    const recentlyDone = rows.filter(r => r.status === 'Done')
+      .sort((a,b) => (b.deadline||b.createdAt||'').localeCompare(a.deadline||a.createdAt||''))
+      .slice(0, 5);
+    let doneHtml = recentlyDone.length ? recentlyDone.map(r => {
+      const e = editors.find(x => x.name === r.editor) || { color:'#8aa3b0', name:r.editor };
+      return `<div class="ar-card">
+        ${avatar(e)}
+        <div class="ar-card-main">
+          <div class="ar-card-name">${escapeHtml(r.editor)}</div>
+          <div class="ar-card-sub">✓ ${escapeHtml(truncate(projName(r),38))}</div>
+        </div>
+        <div class="ar-card-right" style="color:var(--green)">${r.points!=null?Number(r.points):pointsFromRevenue(r.revenue)} pts</div>
+      </div>`;
+    }).join('') : `<div class="ar-empty">No completed videos yet this period.</div>`;
+
+    // ---- Freeing up (by last active deadline, soonest first) ----
+    const freeing = editors.filter(e => e.active.length > 0 && e.lastDl)
+      .sort((a,b) => a.lastDl.localeCompare(b.lastDl));
+    let freeHtml = freeing.length ? freeing.map(e => {
+      const dueDate = new Date(e.lastDl+'T23:59:59');
+      const daysLeft = Math.ceil((dueDate - now)/(1000*60*60*24));
+      const when = daysLeft < 0 ? `overdue` : daysLeft === 0 ? `today` : `in ${daysLeft}d`;
+      const color = daysLeft < 0 ? 'var(--red)' : daysLeft <= 2 ? 'var(--amber)' : 'var(--text-muted)';
+      return `<div class="ar-card">
+        ${avatar(e)}
+        <div class="ar-card-main">
+          <div class="ar-card-name">${escapeHtml(e.name)}</div>
+          <div class="ar-card-sub">${e.active.length} project${e.active.length===1?'':'s'} left · last due ${fmtDate(e.lastDl)}</div>
+        </div>
+        <div class="ar-card-right" style="color:${color}">free ${when}</div>
+      </div>`;
+    }).join('') : `<div class="ar-empty">No deadlines set on active work.</div>`;
+
+    // ---- Idle editors ----
+    const idle = editors.filter(e => e.active.length === 0);
+    let idleHtml = idle.length ? `<div class="ar-card"><div class="ar-card-main"><div class="ar-card-sub" style="white-space:normal">${idle.map(e=>escapeHtml(e.name)).join(', ')} ${idle.length===1?'has':'have'} no active projects — free to take new work.</div></div></div>` : '';
+
+    panel.innerHTML = `
+      <h3>📋 Team Summary <span style="font-size:12px;font-weight:500;color:var(--text-muted)">· this period</span><span class="ar-close" onclick="closeAdminSummary()">✕</span></h3>
+      <div class="ar-section">
+        <div class="ar-section-title">🎬 Currently working <span style="opacity:0.6">(busiest first)</span></div>
+        ${workingHtml}
+      </div>
+      <div class="ar-section">
+        <div class="ar-section-title">✅ Just finished</div>
+        ${doneHtml}
+      </div>
+      <div class="ar-section">
+        <div class="ar-section-title">🕓 Freeing up</div>
+        ${freeHtml}
+      </div>
+      ${idle.length ? `<div class="ar-section"><div class="ar-section-title">💤 Available now</div>${idleHtml}</div>` : ''}
+    `;
+  }
+
   function pickWanderTarget() {
     const b = getPulseBounds();
     if (!b) return;
@@ -1808,35 +2069,50 @@
     if (!b) return;
     s.bounds = b;
 
-    // Determine mode: fleeing (recently chased) vs calm idle
-    const fleeing = (Date.now() - s.lastFleeAt) < 500;
+    // Determine mode: recently sidestepped vs calm idle
+    const dodging = (Date.now() - s.lastFleeAt) < 450;
     const bubbleVisible = s.bubble && s.bubble.classList.contains('show') && !s.angry;
 
-    // When calmly delivering a message, slow WAY down so it's easy to read
     let spring, damping, maxSp;
-    if (s.angry || fleeing) {
-      spring = 0.045; damping = 0.86; maxSp = 13; // zippy escape
+    if (s.angry) {
+      spring = 0.03; damping = 0.88; maxSp = 7;      // shaky but contained
+    } else if (dodging) {
+      spring = 0.016; damping = 0.90; maxSp = 5;     // quick little sidestep, NOT a rocket
     } else if (bubbleVisible) {
-      spring = 0.010; damping = 0.93; maxSp = 1.6; // gentle hover while talking — easy to read
+      spring = 0.010; damping = 0.93; maxSp = 1.5;   // near-still while talking — easy to read
     } else {
-      spring = 0.014; damping = 0.94; maxSp = 3.2; // slow calm drift
+      spring = 0.013; damping = 0.94; maxSp = 2.6;   // slow calm drift
     }
 
     const ax = (s.tx - s.x) * spring;
     const ay = (s.ty - s.y) * spring;
     s.vx += ax; s.vy += ay;
+
+    // Subtle constant mouse awareness: lean a tiny bit toward the cursor.
+    // This is the "synced but not following" feel — a few px of drift, never chasing.
+    if (s.mouseSeen && !s.angry && !dodging) {
+      const toMx = s.mouseX - (s.x + 36);
+      const toMy = s.mouseY - (s.y + 43);
+      const md = Math.hypot(toMx, toMy) || 1;
+      // Only lean if cursor is within a comfortable range; gentle pull
+      if (md < 320 && md > 60) {
+        s.vx += (toMx / md) * 0.10;
+        s.vy += (toMy / md) * 0.10;
+      }
+    }
+
     s.vx *= damping; s.vy *= damping;
     const sp = Math.hypot(s.vx, s.vy);
     if (sp > maxSp) { s.vx = s.vx/sp*maxSp; s.vy = s.vy/sp*maxSp; }
     s.x += s.vx; s.y += s.vy;
 
-    if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx)*0.6; }
-    if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx)*0.6; }
-    if (s.y < b.top) { s.y = b.top; s.vy = Math.abs(s.vy)*0.6; }
-    if (s.y > b.bottom) { s.y = b.bottom; s.vy = -Math.abs(s.vy)*0.6; }
+    if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx)*0.5; }
+    if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx)*0.5; }
+    if (s.y < b.top) { s.y = b.top; s.vy = Math.abs(s.vy)*0.5; }
+    if (s.y > b.bottom) { s.y = b.bottom; s.vy = -Math.abs(s.vy)*0.5; }
 
-    // Tilt only when moving fast (so it sits flat & readable when calm)
-    const tilt = Math.abs(s.vx) > 2 ? Math.max(-12, Math.min(12, s.vx * 1.3)) : s.vx * 0.4;
+    // Tilt only when moving fast (sits flat & readable when calm)
+    const tilt = Math.abs(s.vx) > 2 ? Math.max(-10, Math.min(10, s.vx * 1.2)) : s.vx * 0.5;
     s.el.style.transform = `translate(${s.x.toFixed(2)}px, ${s.y.toFixed(2)}px) rotate(${tilt.toFixed(2)}deg)`;
 
     if (s.bubble && s.bubble.classList.contains('show')) {
@@ -1860,17 +2136,20 @@
 
   function onRobotGrab(e) {
     e.preventDefault(); e.stopPropagation();
-    // A direct click/grab attempt — dart away fast
+    // A direct click attempt — a quick little sidestep, not a panic sprint
     const s = robotState;
     const b = getPulseBounds(); if (!b) return;
-    // Jump to a random far corner
-    s.tx = (s.x < (b.left+b.right)/2) ? b.right : b.left;
-    s.ty = (s.y < (b.top+b.bottom)/2) ? b.bottom : b.top;
-    s.vx += (s.tx - s.x) * 0.08;
-    s.vy += (s.ty - s.y) * 0.08;
-    s.chaseStreak += 6;
-    if (s.chaseStreak > 10 && !s.angry) triggerRobotAngry();
-    else showRobotBubble("Nope! Too slow 😏", false, 2000);
+    s.lastFleeAt = Date.now();
+    // Push a short distance sideways from current spot
+    const dir = (s.x < (b.left+b.right)/2) ? 1 : -1;
+    s.vx += dir * 4.5;
+    s.vy += (Math.random() - 0.5) * 3;
+    // Nudge wander target a bit aside so it settles nearby, not across the panel
+    s.tx = Math.max(b.left, Math.min(b.right, s.x + dir * 70));
+    s.ty = Math.max(b.top, Math.min(b.bottom, s.y + (Math.random()-0.5)*50));
+    s.chaseStreak += 5;
+    if (s.chaseStreak > 16 && !s.angry) triggerRobotAngry();
+    else showRobotBubble("Missed me 😏", false, 1800);
   }
 
   function triggerRobotAngry() {
@@ -2728,15 +3007,15 @@
     const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    let html = `<div class="cal-header"><button onclick="calNav(-1)">‹</button><div class="cal-month">${months[viewMonth]} ${viewYear}</div><button onclick="calNav(1)">›</button></div><div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-day-name">${d}</div>`).join('')}`;
+    let html = `<div class="cal-header"><button onclick="event.stopPropagation();calNav(-1)">‹</button><div class="cal-month">${months[viewMonth]} ${viewYear}</div><button onclick="event.stopPropagation();calNav(1)">›</button></div><div class="cal-grid">${['S','M','T','W','T','F','S'].map(d=>`<div class="cal-day-name">${d}</div>`).join('')}`;
     for (let i=0;i<firstDay;i++) html += `<div class="cal-day empty"></div>`;
     for (let d=1;d<=daysInMonth;d++) {
       const ds = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const cls = ['cal-day']; if (ds===todayStr) cls.push('today'); if (ds===selected) cls.push('selected');
-      html += `<div class="${cls.join(' ')}" onclick="pickDate('${ds}')">${d}</div>`;
+      html += `<div class="${cls.join(' ')}" onclick="event.stopPropagation();pickDate('${ds}')">${d}</div>`;
     }
     html += `</div>`;
-    if (selected) html += `<div class="cal-clear" onclick="pickDate('')">✕ Clear date</div>`;
+    if (selected) html += `<div class="cal-clear" onclick="event.stopPropagation();pickDate('')">✕ Clear date</div>`;
     cal.innerHTML = html;
   }
   function calNav(dir) { calState.viewMonth += dir; if (calState.viewMonth<0) { calState.viewMonth=11; calState.viewYear--; } if (calState.viewMonth>11) { calState.viewMonth=0; calState.viewYear++; } renderCalendar(); }
