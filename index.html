@@ -592,6 +592,7 @@
   .editor-avatar { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(135deg, var(--green-bright), var(--green-deep)); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #052e20; }
   .num-cell { padding: 12px 14px; cursor: text; font-weight: 600; }
   .revenue-val { color: var(--green-bright); }
+  .fi-badge { display:inline-flex; align-items:center; justify-content:center; margin-left:6px; padding:1px 5px; font-size:9px; font-weight:700; letter-spacing:0.04em; background:rgba(29,168,116,0.15); color:#7ee2b8; border:1px solid rgba(29,168,116,0.4); border-radius:4px; vertical-align:middle; text-transform:lowercase; font-family:var(--font-ui); }
   .points-val { color: var(--amber); }
   .points-auto { font-size: 10px; color: var(--text-muted); margin-left: 4px; font-weight: 500; }
   tr.totals-row td { background: rgba(94,231,176,0.04); border-top: 2px solid var(--border-bright); font-weight: 700; opacity: 0.85; }
@@ -2663,7 +2664,8 @@
       return `<td><div class="status-cell" ${click} style="${editable?'':'cursor:default'}"><span class="status-pill ${statusClass(s)}">${escapeHtml(s)}</span></div></td>`;
     }
     if (c.type === 'revenue') {
-      const disp = val ? `<span class="revenue-val">$${Number(val).toLocaleString()}</span>` : `<span class="cell-empty">$0</span>`;
+      const fiBadge = r.revenueSource === 'fiverr' ? `<span class="fi-badge" title="Fiverr · 20% fee already deducted">fi</span>` : '';
+      const disp = val ? `<span class="revenue-val">$${Number(val).toLocaleString()}</span>${fiBadge}` : `<span class="cell-empty">$0</span>`;
       const click = editable ? `onclick="editNumCell(event,'${r.id}','revenue')"` : '';
       return `<td><div class="num-cell" ${click}>${disp}</div></td>`;
     }
@@ -2902,21 +2904,104 @@
   }
   function editNumCell(e, rowId, field) {
     if (!isAdmin()) return;
+    if (field === 'revenue') { openRevenueEditor(e, rowId); return; }
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const td = e.currentTarget.parentElement;
-    let cur = field === 'revenue' ? (r.revenue!=null?r.revenue:'') : (r.points!=null?r.points:pointsFromRevenue(r.revenue));
+    let cur = (r.points!=null?r.points:pointsFromRevenue(r.revenue));
     td.innerHTML = `<input class="cell-input" type="number" min="0" value="${escapeAttr(cur)}">`;
     const input = td.querySelector('input'); input.focus(); input.select();
     let goDown = false;
     const commit = async () => {
       pushUndo();
       const v = input.value.trim();
-      if (field === 'revenue') r.revenue = v === '' ? null : Number(v);
-      else r.points = v === '' ? null : Number(v);
+      r.points = v === '' ? null : Number(v);
       renderActiveCRM(); await saveData(); if (goDown) focusCellBelow(rowId, field);
     };
     input.addEventListener('blur', commit, { once:true });
     input.addEventListener('keydown', ev => { if (ev.key==='Enter') { goDown=true; input.blur(); } if (ev.key==='Escape') { input.removeEventListener('blur',commit); renderCRM(); } });
+  }
+
+  function openRevenueEditor(e, rowId) {
+    if (!isAdmin()) return;
+    const r = data.rows.find(x => x.id === rowId); if (!r) return;
+    closeMenus();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.className = 'dropdown-menu revenue-editor';
+    menu.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.bottom + 4}px;min-width:240px;padding:12px;z-index:500`;
+    const isFiverr = !!r.revenueSource && r.revenueSource === 'fiverr';
+    const gross = r.revenueGross != null ? r.revenueGross : (r.revenue || '');
+    menu.innerHTML = `
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button type="button" data-src="other" class="rev-src-btn ${!isFiverr?'active':''}" style="flex:1;padding:7px 10px;font-size:11px;font-weight:700;letter-spacing:0.04em;border-radius:8px;border:1px solid var(--border);background:${!isFiverr?'var(--green-deep)':'transparent'};color:${!isFiverr?'#052e20':'var(--text-muted)'};cursor:pointer;font-family:var(--font-ui)">OTHER</button>
+        <button type="button" data-src="fiverr" class="rev-src-btn ${isFiverr?'active':''}" style="flex:1;padding:7px 10px;font-size:11px;font-weight:700;letter-spacing:0.04em;border-radius:8px;border:1px solid var(--border);background:${isFiverr?'var(--green-deep)':'transparent'};color:${isFiverr?'#052e20':'var(--text-muted)'};cursor:pointer;font-family:var(--font-ui)">FIVERR</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);letter-spacing:0.04em;margin-bottom:4px" id="revLabel">${isFiverr?'GROSS (BEFORE 20% FIVERR FEE)':'AMOUNT'}</div>
+      <input type="number" min="0" step="any" id="revInput" value="${escapeAttr(gross)}" style="width:100%;padding:8px 10px;font-size:13px;background:rgba(5,13,10,0.6);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--font-ui)">
+      <div id="revPreview" style="font-size:11px;color:var(--text-muted);margin-top:8px;display:${isFiverr?'block':'none'}"></div>
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <button type="button" id="revCancel" style="flex:1;padding:7px;font-size:11px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui)">Cancel</button>
+        <button type="button" id="revSave" style="flex:1;padding:7px;font-size:11px;background:var(--green-deep);border:none;border-radius:7px;color:#052e20;font-weight:700;cursor:pointer;font-family:var(--font-ui)">Save</button>
+      </div>
+    `;
+    document.body.appendChild(menu);
+    openMenu = menu;
+    const input = menu.querySelector('#revInput');
+    const preview = menu.querySelector('#revPreview');
+    const label = menu.querySelector('#revLabel');
+    let src = isFiverr ? 'fiverr' : 'other';
+    function updatePreview() {
+      const gv = parseFloat(input.value) || 0;
+      if (src === 'fiverr') {
+        const net = gv * 0.8;
+        preview.style.display = 'block';
+        preview.innerHTML = `Gross: $${gv.toFixed(2)} · Fiverr fee 20%: −$${(gv*0.2).toFixed(2)} · <span style="color:var(--green);font-weight:700">Net: $${net.toFixed(2)}</span>`;
+        label.textContent = 'GROSS (BEFORE 20% FIVERR FEE)';
+      } else {
+        preview.style.display = 'none';
+        label.textContent = 'AMOUNT';
+      }
+    }
+    menu.querySelectorAll('.rev-src-btn').forEach(btn => {
+      btn.onclick = () => {
+        src = btn.dataset.src;
+        menu.querySelectorAll('.rev-src-btn').forEach(b => {
+          const a = b.dataset.src === src;
+          b.style.background = a ? 'var(--green-deep)' : 'transparent';
+          b.style.color = a ? '#052e20' : 'var(--text-muted)';
+        });
+        updatePreview();
+      };
+    });
+    input.addEventListener('input', updatePreview);
+    input.focus(); input.select();
+    updatePreview();
+    menu.querySelector('#revCancel').onclick = () => closeMenus();
+    const save = async () => {
+      pushUndo();
+      const gv = input.value.trim();
+      if (gv === '') {
+        r.revenue = null; r.revenueGross = null; r.revenueSource = null;
+      } else {
+        const g = Number(gv);
+        if (src === 'fiverr') {
+          r.revenueSource = 'fiverr';
+          r.revenueGross = g;
+          r.revenue = Math.round(g * 0.8 * 100) / 100; // net 80%, 2 decimals
+        } else {
+          r.revenueSource = 'other';
+          r.revenueGross = g;
+          r.revenue = g;
+        }
+      }
+      closeMenus();
+      renderActiveCRM(); await saveData();
+    };
+    menu.querySelector('#revSave').onclick = save;
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') save();
+      if (ev.key === 'Escape') closeMenus();
+    });
   }
 
 
@@ -3517,7 +3602,9 @@
     document.getElementById('financePeriodLabel').textContent = 'Period: ' + periodLabel();
 
     const rate = monthRate(pk);
-    const revenue = periodRevenue(pk);
+    const grossRevenue = periodRevenue(pk); // already net of Fiverr's 20%
+    const payoneerFee = Math.round(grossRevenue * 0.03 * 100) / 100;
+    const revenue = grossRevenue - payoneerFee; // net after Payoneer
     const expenses = periodExpenses(pk);
     const profit = revenue - expenses;
     const split = data.split || { Rashid:77, Fahim:18, Siam:5 };
@@ -3550,7 +3637,9 @@
     html += `
       <div class="fin-card">
         <h3>Monthly Summary</h3>
-        <div class="fin-stat"><span class="label">Total Revenue</span><span class="val rev">$${revenue.toLocaleString()}</span></div>
+        <div class="fin-stat"><span class="label">Gross Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(net of Fiverr 20%)</span></span><span class="val rev">$${grossRevenue.toLocaleString()}</span></div>
+        <div class="fin-stat"><span class="label">Payoneer Fee (3%)</span><span class="val neg">- $${payoneerFee.toLocaleString()}</span></div>
+        <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Net Revenue</span><span class="val rev" style="font-weight:700">$${revenue.toLocaleString()}</span></div>
         <div class="fin-stat"><span class="label">Total Expenses</span><span class="val neg">- $${expenses.toLocaleString()}</span></div>
         <div class="fin-big">
           <div class="num ${profit>=0?'pos':'neg'}">$${profit.toLocaleString()}</div>
