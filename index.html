@@ -2924,6 +2924,7 @@
   function openRevenueEditor(e, rowId) {
     if (!isAdmin()) return;
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
+    if (e) e.stopPropagation();
     closeMenus();
     const rect = e.currentTarget.getBoundingClientRect();
     const menu = document.createElement('div');
@@ -2994,6 +2995,8 @@
           r.revenue = g;
         }
       }
+      // Reset points to auto so they recalculate from the new net revenue
+      r.points = null;
       closeMenus();
       renderActiveCRM(); await saveData();
     };
