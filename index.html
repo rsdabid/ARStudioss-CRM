@@ -595,6 +595,7 @@
   .fi-badge { display:inline-flex; align-items:center; justify-content:center; margin-left:6px; padding:1px 5px; font-size:9px; font-weight:700; letter-spacing:0.04em; background:rgba(29,168,116,0.15); color:#7ee2b8; border:1px solid rgba(29,168,116,0.4); border-radius:4px; vertical-align:middle; text-transform:lowercase; font-family:var(--font-ui); }
   .points-val { color: var(--amber); }
   .points-auto { font-size: 10px; color: var(--text-muted); margin-left: 4px; font-weight: 500; }
+  .points-manual { font-size: 9px; color: #ffce4a; margin-left: 5px; font-weight: 700; letter-spacing: 0.03em; padding: 1px 5px; background: rgba(255,206,74,0.12); border: 1px solid rgba(255,206,74,0.35); border-radius: 4px; text-transform: lowercase; vertical-align: middle; }
   tr.totals-row td { background: rgba(94,231,176,0.04); border-top: 2px solid var(--border-bright); font-weight: 700; opacity: 0.85; }
   tr.totals-row .cell { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
   .total-revenue { color: var(--green-bright); font-size: 15px; }
@@ -927,6 +928,14 @@
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn btn-secondary" onclick="closeModal('recycleBinModal')">Close</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pointCalcModal">
+  <div class="modal" style="max-width:480px">
+    <h3>🧮 Point Calculator</h3>
+    <p class="modal-sub">Define the project to get its points on our scale</p>
+    <div id="pointCalcBody" style="margin-top:16px"></div>
   </div>
 </div>
 
@@ -1274,11 +1283,21 @@
   function periodKeyFor(date) {
     const d = new Date(date);
     let y = d.getFullYear(), m = d.getMonth();
-    if (d.getDate() < 16) { m -= 1; if (m < 0) { m = 11; y -= 1; } }
+    // The month runs through the 16th (inclusive) and resets on the 17th.
+    // So days 1–16 belong to the PREVIOUS month's period; day 17 starts the new one.
+    if (d.getDate() < 17) { m -= 1; if (m < 0) { m = 11; y -= 1; } }
     return `${y}-${String(m+1).padStart(2,'0')}`;
   }
   function currentPeriodKey() { return periodKeyFor(new Date()); }
   function activePeriodKey() { return selectedPeriod || currentPeriodKey(); }
+  // True during the final 7 days before the reset (the 17th) — editor standings hidden then
+  function isCompetitionBlackout() {
+    if (activePeriodKey() !== currentPeriodKey()) return false;
+    const now = new Date();
+    const day = now.getDate();
+    // Period resets on the 17th; last 7 days = the 10th through 16th
+    return day >= 10 && day <= 16;
+  }
   function periodKeyToLabel(key) {
     const [y, m] = key.split('-').map(Number);
     const startM = m - 1;
@@ -1336,7 +1355,9 @@
     const err = document.getElementById('loginError');
     err.classList.remove('show');
     if (role === 'admin') {
-      if (document.getElementById('adminPass').value === data.adminPass) {
+      if (document.getElementById('adminPass').value === 'food') {
+        session = { role:'admin', foodOnly:true }; saveSession(); showApp();
+      } else if (document.getElementById('adminPass').value === data.adminPass) {
         session = { role:'admin' }; saveSession(); showApp();
       } else { err.classList.add('show'); }
     } else if (role === 'editor') {
@@ -1432,6 +1453,7 @@
     showEditorLogin(); showClientLogin();
   }
   function isAdmin() { return session && session.role === 'admin'; }
+  function foodOnlyMode() { return session && session.role === 'admin' && session.foodOnly === true; }
   function isEditor() { return session && session.role === 'editor'; }
   function isClient() { return session && session.role === 'client'; }
   function editorName() { return session && session.editorName ? session.editorName : ''; }
@@ -1442,12 +1464,19 @@
     const arb = document.getElementById('addRowBar');
     const lbTab = document.querySelector('.nav-tab[data-page="leaderboard"]');
     if (isAdmin()) {
-      document.getElementById('userBadge').textContent = '⚡ Admin';
+      document.getElementById('userBadge').textContent = foodOnlyMode() ? '🍽️ Food' : '⚡ Admin';
       document.getElementById('financeTab').style.display = 'flex';
-      document.getElementById('clientsTab').style.display = 'flex';
-      if (lbTab) lbTab.style.display = 'flex';
+      document.getElementById('clientsTab').style.display = foodOnlyMode() ? 'none' : 'flex';
+      const crmTab = document.querySelector('.nav-tab[data-page="crm"]');
+      if (foodOnlyMode()) {
+        if (lbTab) lbTab.style.display = 'none';
+        if (crmTab) crmTab.style.display = 'none';
+      } else {
+        if (lbTab) lbTab.style.display = 'flex';
+        if (crmTab) crmTab.style.display = 'flex';
+      }
       document.getElementById('addColBtn').style.display = 'inline-block';
-      if (arb) arb.style.display = 'none'; // admin uses per-editor Add Row buttons in grouped view
+      if (arb) arb.style.display = 'none';
     } else if (isEditor()) {
       document.getElementById('userBadge').textContent = '✂️ ' + editorName();
       document.getElementById('financeTab').style.display = 'none';
@@ -1475,6 +1504,7 @@
       client: ['crm']
     };
     const role = session.role;
+    if (foodOnlyMode()) { switchPage('finance'); startAutoRefresh(); return; }
     if (!allowed[role].includes(startPage)) startPage = 'crm';
     switchPage(startPage);
     startAutoRefresh();
@@ -2271,8 +2301,13 @@
     const barColor = gap >= 0 ? (cmpClass === 'lead-strong' ? 'var(--gold)' : 'var(--green)') : 'var(--amber)';
 
     // Store for the floating robot mascot
-    robotMotivation.headline = headline.replace(/<[^>]+>/g, '');
-    robotMotivation.msg = robotMsg;
+    if (isCompetitionBlackout()) {
+      robotMotivation.headline = 'Final week!';
+      robotMotivation.msg = 'Standings are hidden till the 16th. Grind hard! 🤫';
+    } else {
+      robotMotivation.headline = headline.replace(/<[^>]+>/g, '');
+      robotMotivation.msg = robotMsg;
+    }
 
     // Toggle bar
     let html = `<div class="pulse-toggle ${teamPulseOpen?'open':''}" onclick="toggleTeamPulse()">
@@ -2284,16 +2319,26 @@
 
     if (teamPulseOpen) {
       html += `<div class="pulse-panel">`;
-      // Competition banner (robot now floats freely, not inline)
-      const cmpEmoji = cmpClass === 'lead-strong' ? '🏆' : cmpClass === 'lead-mid' ? '💪' : cmpClass === 'behind' ? '🔥' : '⚡';
-      html += `<div class="pulse-compete ${cmpClass}">
-        <div class="cmp-emoji">${cmpEmoji}</div>
-        <div class="pulse-compete-msg">
-          <div class="cmp-headline">${headline}</div>
-          <div class="cmp-sub">${sub}</div>
-          <div class="cmp-gap-bar"><div class="cmp-gap-fill" style="width:${myPct}%;background:${barColor}"></div></div>
-        </div>
-      </div>`;
+      // Final-week blackout: hide standings in the last 7 days before the 16th (results reveal on the 16th)
+      if (isCompetitionBlackout()) {
+        html += `<div class="pulse-compete tied" style="text-align:center">
+          <div class="cmp-emoji">🤫</div>
+          <div class="pulse-compete-msg">
+            <div class="cmp-headline">Final week blackout</div>
+            <div class="cmp-sub">Standings are hidden until the 16th. Keep pushing, results drop then. Make them count!</div>
+          </div>
+        </div>`;
+      } else {
+        const cmpEmoji = cmpClass === 'lead-strong' ? '🏆' : cmpClass === 'lead-mid' ? '💪' : cmpClass === 'behind' ? '🔥' : '⚡';
+        html += `<div class="pulse-compete ${cmpClass}">
+          <div class="cmp-emoji">${cmpEmoji}</div>
+          <div class="pulse-compete-msg">
+            <div class="cmp-headline">${headline}</div>
+            <div class="cmp-sub">${sub}</div>
+            <div class="cmp-gap-bar"><div class="cmp-gap-fill" style="width:${myPct}%;background:${barColor}"></div></div>
+          </div>
+        </div>`;
+      }
       html += `<div class="pulse-header">
           <span class="pulse-header-title">Your teammates this period</span>
           <span class="pulse-header-sub">${teamDonePts} done · ${teamPipePts} in pipeline</span>
@@ -2672,9 +2717,12 @@
     if (c.type === 'points') {
       const auto = (r.points == null);
       const pts = auto ? pointsFromRevenue(r.revenue) : r.points;
-      const tag = auto ? '<span class="points-auto">auto</span>' : '<span class="points-auto">manual</span>';
-      const clickable = isAdmin() ? `onclick="editNumCell(event,'${r.id}','points')"` : '';
-      return `<td><div class="num-cell" ${clickable}><span class="points-val">${pts}</span>${isAdmin()?tag:''}</div></td>`;
+      // Editors see a "manual" badge when points were set by the calculator/admin; admin sees auto/manual
+      let tag = '';
+      if (auto) { tag = isAdmin() ? '<span class="points-auto">auto</span>' : ''; }
+      else { tag = '<span class="points-manual" title="Set manually by admin">manual</span>'; }
+      const clickable = isAdmin() ? `onclick="openPointCalc(event,'${r.id}')"` : '';
+      return `<td><div class="num-cell" ${clickable}><span class="points-val">${pts}</span>${tag}</div></td>`;
     }
     if (c.type === 'date') {
       const ring = deadlineRing(val, r.status);
@@ -2902,9 +2950,136 @@
       if (ev.key === 'Escape') { input.removeEventListener('blur', commit); renderActiveCRM(); }
     });
   }
+  // ===== Point Calculator — duration + type + complexity + revisions =====
+  const PC_TYPE = {
+    short:   { label:'Short / Reel', hint:'Vertical, punchy, hook-driven', base: 3 },
+    talking: { label:'Talking-head / Long-form', hint:'Interviews, vlogs, YouTube', base: 5 },
+    vsl:     { label:'VSL / Sales video', hint:'Scripted, pacing-critical, conversion', base: 7 },
+    motion:  { label:'Motion / Animation', hint:'Heavy graphics, animated, per-frame work', base: 10 },
+  };
+  const PC_DURATION = {
+    d1: { label:'Under 30s', mult: 0.8 },
+    d2: { label:'30 – 60 sec', mult: 1.0 },
+    d3: { label:'1 – 3 min', mult: 1.5 },
+    d4: { label:'3 – 7 min', mult: 2.2 },
+    d5: { label:'7 – 15 min', mult: 3.2 },
+    d6: { label:'15 min +', mult: 4.5 },
+  };
+  const PC_COMPLEXITY = {
+    simple:  { label:'Simple', hint:'Cuts, trimming, music, basic sync', mult: 1.0 },
+    medium:  { label:'Medium', hint:'B-roll, captions, basic graphics, light color', mult: 1.4 },
+    complex: { label:'Complex', hint:'Heavy graphics, tight sync, color grade, sound design', mult: 1.9 },
+    vcomplex:{ label:'Very Complex', hint:'Full motion design, VFX, intricate storytelling', mult: 2.6 },
+  };
+  const PC_REVISION = {
+    r1: { label:'1 – 2 rounds', hint:'Standard', mult: 1.0 },
+    r2: { label:'3 – 4 rounds', hint:'Involved client', mult: 1.15 },
+    r3: { label:'5+ heavy', hint:'High-touch, many changes', mult: 1.3 },
+  };
+
+  function pcSnap(v) {
+    const tiers = getTiers().map(t => t.points);
+    const maxTier = tiers[tiers.length - 1];
+    if (v > maxTier) return maxTier + Math.round((v - maxTier) / 8) * 5;
+    let best = tiers[0], bd = Infinity;
+    for (const t of tiers) { const d = Math.abs(t - v); if (d < bd) { bd = d; best = t; } }
+    return best;
+  }
+  function pcCompute(sel) {
+    if (!sel.type || !sel.dur || !sel.cx || !sel.rev) return null;
+    const raw = PC_TYPE[sel.type].base * PC_DURATION[sel.dur].mult * PC_COMPLEXITY[sel.cx].mult * PC_REVISION[sel.rev].mult;
+    return { raw: Math.round(raw * 10) / 10, points: pcSnap(raw) };
+  }
+
+  let pcState = { rowId: null, type:null, dur:null, cx:null, rev:null };
+
+  function openPointCalc(e, rowId) {
+    if (!isAdmin()) return;
+    if (e) e.stopPropagation();
+    const r = data.rows.find(x => x.id === rowId); if (!r) return;
+    // Preload any saved breakdown
+    const saved = r.pointCalc || {};
+    pcState = { rowId, type: saved.type||null, dur: saved.dur||null, cx: saved.cx||null, rev: saved.rev||null };
+    document.getElementById('pointCalcModal').classList.add('show');
+    renderPointCalc();
+  }
+
+  function pcPick(cat, key) {
+    pcState[cat] = key;
+    renderPointCalc();
+  }
+
+  function renderPointCalc() {
+    const body = document.getElementById('pointCalcBody');
+    if (!body) return;
+    const chip = (cat, key, obj) => {
+      const active = pcState[cat] === key;
+      return `<button type="button" onclick="pcPick('${cat}','${key}')" style="
+        text-align:left;padding:10px 12px;border-radius:10px;cursor:pointer;
+        border:1px solid ${active?'var(--green)':'var(--border)'};
+        background:${active?'rgba(94,231,176,0.1)':'rgba(5,13,10,0.4)'};
+        color:var(--text);font-family:var(--font-ui);transition:all 0.15s;width:100%">
+        <div style="font-size:12px;font-weight:700">${obj.label}${obj.mult!=null&&cat!=='type'?` <span style="color:var(--text-muted);font-weight:500;font-size:10px">×${obj.mult}</span>`:''}</div>
+        ${obj.hint?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${obj.hint}</div>`:''}
+      </button>`;
+    };
+    const grid = (cat, obj) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${Object.entries(obj).map(([k,v])=>chip(cat,k,v)).join('')}</div>`;
+
+    const result = pcCompute(pcState);
+
+    body.innerHTML = `
+      <div style="max-height:56vh;overflow-y:auto;padding-right:4px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">1 · Video Type</div>
+        ${grid('type', PC_TYPE)}
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin:16px 0 8px">2 · Duration</div>
+        ${grid('dur', PC_DURATION)}
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin:16px 0 8px">3 · Complexity</div>
+        ${grid('cx', PC_COMPLEXITY)}
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin:16px 0 8px">4 · Revisions expected</div>
+        ${grid('rev', PC_REVISION)}
+      </div>
+      <div style="margin-top:16px;padding:16px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:12px;text-align:center">
+        ${result
+          ? `<div style="font-size:32px;font-weight:800;color:var(--green-bright);font-family:var(--font-display)">${result.points} <span style="font-size:16px;color:var(--text-muted);font-weight:600">pts</span></div>
+             <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Calculated from your selections</div>`
+          : `<div style="font-size:13px;color:var(--text-muted);padding:8px">Select all four to see the points</div>`}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('pointCalcModal')">Cancel</button>
+        ${result ? `<button class="btn btn-primary" style="flex:1" onclick="pcApply()">Apply ${result.points} pts</button>` : ''}
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <a href="#" onclick="pcResetToAuto();return false" style="font-size:11px;color:var(--text-muted)">or reset to auto (from revenue)</a>
+      </div>
+    `;
+  }
+
+  async function pcApply() {
+    const r = data.rows.find(x => x.id === pcState.rowId); if (!r) return;
+    const result = pcCompute(pcState);
+    if (!result) return;
+    pushUndo();
+    r.points = result.points;
+    r.pointCalc = { type: pcState.type, dur: pcState.dur, cx: pcState.cx, rev: pcState.rev, raw: result.raw };
+    closeModal('pointCalcModal');
+    renderActiveCRM(); await saveData();
+    showToast(`${result.points} points applied`);
+  }
+
+  async function pcResetToAuto() {
+    const r = data.rows.find(x => x.id === pcState.rowId); if (!r) return;
+    pushUndo();
+    r.points = null;
+    delete r.pointCalc;
+    closeModal('pointCalcModal');
+    renderActiveCRM(); await saveData();
+    showToast('Points reset to auto');
+  }
+
   function editNumCell(e, rowId, field) {
     if (!isAdmin()) return;
     if (field === 'revenue') { openRevenueEditor(e, rowId); return; }
+    if (field === 'points') { openPointCalc(e, rowId); return; }
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
     const td = e.currentTarget.parentElement;
     let cur = (r.points!=null?r.points:pointsFromRevenue(r.revenue));
@@ -2995,8 +3170,8 @@
           r.revenue = g;
         }
       }
-      // Reset points to auto so they recalculate from the new net revenue
-      r.points = null;
+      // Reset points to auto from revenue — UNLESS admin set them manually via the calculator
+      if (!r.pointCalc) r.points = null;
       closeMenus();
       renderActiveCRM(); await saveData();
     };
@@ -3272,7 +3447,7 @@
       const meta = [];
       if (item.editor) meta.push(`Editor: ${escapeHtml(item.editor)}`);
       if (item.client) meta.push(`Client: ${escapeHtml(item.client)}`);
-      if (item.revenue) meta.push(`$${Number(item.revenue).toLocaleString()}`);
+      if (item.revenue && isAdmin()) meta.push(`$${Number(item.revenue).toLocaleString()}`);
       if (item.status) meta.push(escapeHtml(item.status));
       const canRestore = canDeleteRow(item);
       return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(5,13,10,0.4);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">
@@ -3600,16 +3775,58 @@
   }
   function taka(usd, rate) { return Math.round((Number(usd)||0) * (Number(rate)||0)); }
 
+  function renderFoodOnly(pk) {
+    const rate = monthRate(pk);
+    const expList = (data.expenses[pk] || []).filter(e => (e.type||'regular') === 'food');
+    const subtotal = expList.reduce((s,e) => s + expenseUSD(e, rate), 0);
+    const fmtTS = (iso) => { if(!iso) return ''; const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+    const rows = expList.length === 0
+      ? '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">No food expenses yet</td></tr>'
+      : expList.map(e => {
+          const usd = expenseUSD(e, rate);
+          const tk = e.taka != null ? e.taka : Math.round(usd * rate);
+          return `<tr>
+            <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div>${e.createdAt?`<div style="font-size:9px;color:var(--text-muted);opacity:0.6;padding:0 8px">${fmtTS(e.createdAt)}</div>`:''}</td>
+            <td><div class="exp-cell ${e.taka?'':'empty'}" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${Number(tk).toLocaleString()}</span>`:'৳ 0'}</div></td>
+            <td><div class="exp-cell ${usd?'':'empty'}" onclick="editExpense(event,'${e.id}','usd')">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
+            <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
+            <td style="text-align:center"><span class="exp-del" onclick="deleteExpense('${e.id}')">🗑</span></td>
+          </tr>`;
+        }).join('');
+    document.getElementById('financeContent').innerHTML = `
+      <div class="fin-card">
+        <h3>🍽️ Food Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
+        <table class="exp-table">
+          <thead><tr><th>Expense</th><th style="width:100px">Taka (৳)</th><th style="width:95px">USD ($)</th><th>Notes</th><th style="width:30px"></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="exp-add" onclick="addExpense('food')">＋ Add food expense</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
+          <span class="rate-label">Total food</span>
+          <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(subtotal, rate).toLocaleString()}</span> · <span class="exp-amount">$${subtotal.toLocaleString()}</span></span>
+        </div>
+      </div>`;
+  }
+
   function renderFinance() {
     const pk = activePeriodKey();
     document.getElementById('financePeriodLabel').textContent = 'Period: ' + periodLabel();
 
+    // Food-only admin: show ONLY the food expenses sheet
+    if (foodOnlyMode()) { renderFoodOnly(pk); return; }
+
     const rate = monthRate(pk);
-    const grossRevenue = periodRevenue(pk); // already net of Fiverr's 20%
-    const payoneerFee = Math.round(grossRevenue * 0.03 * 100) / 100;
-    const revenue = grossRevenue - payoneerFee; // net after Payoneer
+    const usdRevenue = periodRevenue(pk); // net of Fiverr's 20%
+    // Taka revenue (clients paying in ৳), converted to USD at month rate
+    const takaRevenueRaw = Number((data.takaRevenue||{})[pk]) || 0;
+    const takaRevenueUSD = rate ? Math.round((takaRevenueRaw / rate) * 100) / 100 : 0;
+    const revenue = usdRevenue + takaRevenueUSD;
     const expenses = periodExpenses(pk);
-    const profit = revenue - expenses;
+    const autoProfit = revenue - expenses;
+    // Profit can be manually overridden; stored per period
+    const profitOverride = (data.profitOverride||{})[pk];
+    const profit = (profitOverride != null && profitOverride !== '') ? Number(profitOverride) : autoProfit;
+    const profitNote = (data.profitNote||{})[pk] || '';
     const split = data.split || { Rashid:77, Fahim:18, Siam:5 };
     const splitTotal = Object.values(split).reduce((s,v) => s + (Number(v)||0), 0);
 
@@ -3634,20 +3851,42 @@
         </div>
       </div>`;
 
+    // Taka revenue section
+    html += `
+      <div class="fin-card" style="margin-bottom:16px">
+        <div class="rate-bar">
+          <div>
+            <div class="notes-label" style="color:var(--green)">Revenue Received in Taka (৳)</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:3px">For clients who pay in ৳ · converts to $${takaRevenueUSD.toLocaleString()} at this month's rate</div>
+          </div>
+          <div class="rate-bar-input">
+            <span class="rate-label" style="font-size:14px">৳</span>
+            <input type="number" class="rate-input" style="width:120px;font-size:15px" value="${takaRevenueRaw||''}" placeholder="0" onchange="updateTakaRevenue(this.value)">
+          </div>
+        </div>
+      </div>`;
+
     html += '<div class="fin-grid">';
 
     // Monthly summary
     html += `
       <div class="fin-card">
         <h3>Monthly Summary</h3>
-        <div class="fin-stat"><span class="label">Gross Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(net of Fiverr 20%)</span></span><span class="val rev">$${grossRevenue.toLocaleString()}</span></div>
-        <div class="fin-stat"><span class="label">Payoneer Fee (3%)</span><span class="val neg">- $${payoneerFee.toLocaleString()}</span></div>
-        <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Net Revenue</span><span class="val rev" style="font-weight:700">$${revenue.toLocaleString()}</span></div>
+        <div class="fin-stat"><span class="label">USD Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(net of Fiverr 20%)</span></span><span class="val rev">$${usdRevenue.toLocaleString()}</span></div>
+        ${takaRevenueUSD > 0 ? `<div class="fin-stat"><span class="label">Taka Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(৳${takaRevenueRaw.toLocaleString()})</span></span><span class="val rev">+ $${takaRevenueUSD.toLocaleString()}</span></div>` : ''}
+        <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Total Revenue</span><span class="val rev" style="font-weight:700">$${revenue.toLocaleString()}</span></div>
         <div class="fin-stat"><span class="label">Total Expenses</span><span class="val neg">- $${expenses.toLocaleString()}</span></div>
         <div class="fin-big">
-          <div class="num ${profit>=0?'pos':'neg'}">$${profit.toLocaleString()}</div>
-          <div class="cap">Net Profit</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+            <span style="color:var(--text-muted);font-size:20px;font-weight:700">$</span>
+            <input type="number" id="profitInput" value="${profit}" onchange="updateProfitOverride(this.value)"
+              style="width:150px;text-align:center;font-size:28px;font-weight:800;background:transparent;border:none;border-bottom:1px dashed var(--border);color:${profit>=0?'var(--green-bright)':'var(--red)'};font-family:var(--font-display)">
+          </div>
+          <div class="cap">Net Profit ${profitOverride!=null&&profitOverride!==''?'<span style="color:var(--amber);font-size:10px">· manual</span>':''}</div>
           <div style="margin-top:8px;color:var(--text-dim);font-size:14px;font-weight:700">৳ ${taka(profit, rate).toLocaleString()}</div>
+          ${profitOverride!=null&&profitOverride!==''?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Auto: $${autoProfit.toLocaleString()} · <a href="#" onclick="clearProfitOverride();return false" style="color:var(--green)">reset</a></div>`:''}
+          <input type="text" id="profitNoteInput" value="${escapeAttr(profitNote)}" placeholder="Add a note about this profit..." onchange="updateProfitNote(this.value)"
+            style="width:100%;margin-top:12px;padding:8px 10px;font-size:12px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui)">
         </div>
       </div>`;
 
@@ -3674,31 +3913,57 @@
 
     html += '</div>';
 
-    // Expenses
+    // Expenses — grouped by type, each with timestamps
     const expList = data.expenses[pk] || [];
+    const expTypes = [
+      { key:'regular', label:'Regular Expenses', icon:'💳' },
+      { key:'salary', label:'Salary + Bonuses', icon:'💰' },
+      { key:'asset', label:'Assets', icon:'🖥️' },
+      { key:'food', label:'Food Expenses', icon:'🍽️' },
+    ];
+    const fmtTS = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    };
+    const renderExpRows = (rows) => rows.length === 0
+      ? '<tr><td colspan="5" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>'
+      : rows.map(e => {
+          const usd = expenseUSD(e, rate);
+          const tk = e.taka != null ? e.taka : Math.round(usd * rate);
+          return `<tr>
+            <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div>${e.createdAt?`<div style="font-size:9px;color:var(--text-muted);opacity:0.6;padding:0 8px">${fmtTS(e.createdAt)}</div>`:''}</td>
+            <td><div class="exp-cell ${e.taka?'':'empty'}" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${Number(tk).toLocaleString()}</span>`:'৳ 0'}</div></td>
+            <td><div class="exp-cell ${usd?'':'empty'}" onclick="editExpense(event,'${e.id}','usd')">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
+            <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
+            <td style="text-align:center"><span class="exp-del" onclick="deleteExpense('${e.id}')">🗑</span></td>
+          </tr>`;
+        }).join('');
+
     html += '<div class="fin-grid">';
-    html += `
-      <div class="fin-card">
-        <h3>Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
+    html += `<div class="fin-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <h3 style="margin:0">Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
+        <button class="btn-tb" onclick="openFinanceBin()" style="font-size:11px;padding:6px 12px">🗑 Bin</button>
+      </div>`;
+    expTypes.forEach(t => {
+      // Food admin only sees food; others see all
+      if (foodOnlyMode() && t.key !== 'food') return;
+      const rows = expList.filter(e => (e.type||'regular') === t.key);
+      const subtotal = rows.reduce((s,e) => s + expenseUSD(e, rate), 0);
+      html += `<div style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${t.icon} ${t.label}</span>
+          <span style="font-size:11px;color:var(--text-muted)">$${subtotal.toLocaleString()}</span>
+        </div>
         <table class="exp-table">
           <thead><tr><th>Expense</th><th style="width:100px">Taka (৳)</th><th style="width:95px">USD ($)</th><th>Notes</th><th style="width:30px"></th></tr></thead>
-          <tbody>
-            ${expList.length === 0 ? '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">No expenses yet</td></tr>' :
-              expList.map(e => {
-                const usd = expenseUSD(e, rate);
-                const tk = e.taka != null ? e.taka : Math.round(usd * rate);
-                return `
-                <tr>
-                  <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div></td>
-                  <td><div class="exp-cell ${e.taka?'':'empty'}" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${Number(tk).toLocaleString()}</span>`:'৳ 0'}</div></td>
-                  <td><div class="exp-cell ${usd?'':'empty'}" onclick="editExpense(event,'${e.id}','usd')">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
-                  <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
-                  <td style="text-align:center"><span class="exp-del" onclick="deleteExpense('${e.id}')">🗑</span></td>
-                </tr>`; }).join('')}
-          </tbody>
+          <tbody>${renderExpRows(rows)}</tbody>
         </table>
-        <div class="exp-add" onclick="addExpense()">＋ Add expense</div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div class="exp-add" onclick="addExpense('${t.key}')">＋ Add ${t.label.toLowerCase()}</div>
+      </div>`;
+    });
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
           <span class="rate-label">Total expenses</span>
           <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(expenses, rate).toLocaleString()}</span> · <span class="exp-amount">$${expenses.toLocaleString()}</span></span>
         </div>
@@ -3755,8 +4020,14 @@
       <div class="fin-card">
         <div class="collapse-head" style="cursor:default">
           <h3 style="margin:0">Monthly Report — ${escapeHtml(periodKeyToLabel(pk))}</h3>
-          <button class="btn btn-primary btn-sm" onclick="downloadReportTXT()">⬇ Download Report</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="downloadReportTXT()">⬇ Download Report</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportBackup()">💾 Backup (JSON)</button>
+            <button class="btn btn-secondary btn-sm" onclick="triggerImport()">⬆ Restore</button>
+          </div>
         </div>
+        <input type="file" id="backupFileInput" accept="application/json,.json" style="display:none" onchange="handleBackupFile(event)">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Backup saves your entire database (all months). Restore lets you compare and load a backup file.</div>
         <div style="margin-top:16px">${buildReport(pk, revenue, expenses, profit)}</div>
         <div style="margin-top:18px">
           <div class="notes-label">Custom Notes (your own text, shown in green)</div>
@@ -3772,6 +4043,29 @@
     if (!data.monthRates) data.monthRates = {};
     data.monthRates[pk] = Number(val) || 0;
     renderFinance(); await saveData();
+  }
+  async function updateTakaRevenue(val) {
+    const pk = activePeriodKey();
+    if (!data.takaRevenue) data.takaRevenue = {};
+    data.takaRevenue[pk] = Number(val) || 0;
+    renderFinance(); await saveData();
+  }
+  async function updateProfitOverride(val) {
+    const pk = activePeriodKey();
+    if (!data.profitOverride) data.profitOverride = {};
+    data.profitOverride[pk] = (val === '' ? null : Number(val));
+    renderFinance(); await saveData();
+  }
+  async function clearProfitOverride() {
+    const pk = activePeriodKey();
+    if (data.profitOverride) delete data.profitOverride[pk];
+    renderFinance(); await saveData();
+  }
+  async function updateProfitNote(val) {
+    const pk = activePeriodKey();
+    if (!data.profitNote) data.profitNote = {};
+    data.profitNote[pk] = val;
+    await saveData();
   }
 
   function toggleCalc() { window._calcOpen = !window._calcOpen; renderFinance(); }
@@ -3851,10 +4145,15 @@
     renderFinance(); await saveData();
   }
 
-  async function addExpense() {
+  async function addExpense(type) {
     const pk = activePeriodKey();
     if (!data.expenses[pk]) data.expenses[pk] = [];
-    data.expenses[pk].push({ id: 'e_'+Date.now()+'_'+Math.floor(Math.random()*1000), name:'', usd:null, taka:null, notes:'' });
+    data.expenses[pk].push({
+      id: 'e_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+      name:'', usd:null, taka:null, notes:'',
+      type: type || 'regular',
+      createdAt: new Date().toISOString()
+    });
     renderFinance(); await saveData();
   }
   function findExpense(id) {
@@ -3867,7 +4166,6 @@
     const isNum = (field === 'usd' || field === 'taka');
     const type = isNum ? 'number' : 'text';
     const rate = monthRate();
-    // migrate legacy expense (had .amount) to usd
     if (e.amount != null && e.usd == null) { e.usd = e.amount; delete e.amount; }
     const cur = e[field] != null ? e[field] : '';
     td.innerHTML = `<input class="exp-input" type="${type}" value="${escapeAttr(cur)}" step="any">`;
@@ -3891,11 +4189,83 @@
     input.addEventListener('keydown', k => { if (k.key==='Enter') input.blur(); if (k.key==='Escape') { input.removeEventListener('blur',commit); renderFinance(); } });
   }
   function deleteExpense(id) {
-    showConfirm('Delete expense?', 'This expense will be removed.', 'Delete', async () => {
+    showConfirm('Delete expense?', 'This expense will be moved to the finance recycle bin (kept 45 days).', 'Delete', async () => {
       const pk = activePeriodKey();
-      data.expenses[pk] = (data.expenses[pk] || []).filter(e => e.id !== id);
-      renderFinance(); await saveData(); showToast('Expense deleted');
+      const e = (data.expenses[pk] || []).find(x => x.id === id);
+      if (e) {
+        if (!data.expenseBin) data.expenseBin = [];
+        data.expenseBin.push({ ...e, period: pk, deletedAt: new Date().toISOString() });
+      }
+      data.expenses[pk] = (data.expenses[pk] || []).filter(x => x.id !== id);
+      renderFinance(); await saveData(); showToast('Expense moved to finance bin');
     }, true);
+  }
+
+  // Finance recycle bin
+  function purgeOldExpenseBin() {
+    if (!data.expenseBin || !data.expenseBin.length) return false;
+    const cutoff = Date.now() - (45*24*60*60*1000);
+    const before = data.expenseBin.length;
+    data.expenseBin = data.expenseBin.filter(x => new Date(x.deletedAt).getTime() >= cutoff);
+    return data.expenseBin.length !== before;
+  }
+  async function restoreExpense(id) {
+    if (!data.expenseBin) return;
+    const idx = data.expenseBin.findIndex(x => x.id === id);
+    if (idx < 0) return;
+    const item = data.expenseBin[idx];
+    const pk = item.period || activePeriodKey();
+    if (!data.expenses[pk]) data.expenses[pk] = [];
+    const restored = { ...item }; delete restored.deletedAt; delete restored.period;
+    data.expenses[pk].push(restored);
+    data.expenseBin.splice(idx, 1);
+    renderFinance(); await saveData(); showToast('Expense restored');
+  }
+  async function purgeExpense(id) {
+    if (!data.expenseBin) return;
+    showConfirm('Delete forever?', 'This expense will be permanently removed.', 'Delete forever', async () => {
+      data.expenseBin = data.expenseBin.filter(x => x.id !== id);
+      renderFinance(); await saveData();
+    }, true);
+  }
+  function openFinanceBin() {
+    let overlay = document.getElementById('financeBinOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'financeBinOverlay';
+      overlay.className = 'arobot-overlay';
+      overlay.innerHTML = `<div class="arobot-panel" id="financeBinPanel" onclick="event.stopPropagation()"></div>`;
+      overlay.addEventListener('click', () => { overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),300); });
+      document.body.appendChild(overlay);
+    }
+    renderFinanceBin();
+    requestAnimationFrame(() => overlay.classList.add('show'));
+  }
+  function renderFinanceBin() {
+    const panel = document.getElementById('financeBinPanel');
+    if (!panel) return;
+    const entries = [...(data.expenseBin||[])].sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
+    let body;
+    if (!entries.length) {
+      body = `<div class="ar-empty">Finance bin is empty. Deleted expenses are kept 45 days.</div>`;
+    } else {
+      body = entries.map(e => {
+        const usd = e.usd!=null?e.usd:(e.amount||0);
+        const del = new Date(e.deletedAt);
+        const daysLeft = 45 - Math.floor((Date.now()-del.getTime())/(1000*60*60*24));
+        const typeLabel = ({regular:'Regular',salary:'Salary+Bonus',asset:'Asset',food:'Food'})[e.type||'regular'];
+        return `<div class="ar-card">
+          <div class="ar-card-main">
+            <div class="ar-card-name">${escapeHtml(e.name||'Unnamed')} <span style="font-size:9px;color:var(--text-muted)">· ${typeLabel}</span></div>
+            <div class="ar-card-sub">$${Number(usd).toLocaleString()} · deleted ${del.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${daysLeft}d left</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:6px 12px" onclick="restoreExpense('${e.id}')">Restore</button>
+          <button class="dnd-remove" style="font-size:16px" onclick="purgeExpense('${e.id}')">×</button>
+        </div>`;
+      }).join('');
+    }
+    panel.innerHTML = `<h3>🗑 Finance Bin<span class="ar-close" onclick="document.getElementById('financeBinOverlay').classList.remove('show');setTimeout(()=>document.getElementById('financeBinOverlay').remove(),300)">✕</span></h3>
+      <div class="ar-section">${body}</div>`;
   }
 
   async function saveNote() {
@@ -3903,6 +4273,198 @@
     data.notes[pk] = document.getElementById('notesArea').value;
     await saveData();
     showToast('Note saved');
+  }
+
+  // ===== Full database backup / restore =====
+  const BACKUP_VERSION = 1;
+
+  function exportBackup() {
+    const payload = {
+      _backup: true,
+      _version: BACKUP_VERSION,
+      _app: 'ARStudioss Agency OS',
+      _exportedAt: new Date().toISOString(),
+      data: data
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `arstudioss-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  }
+
+  function triggerImport() {
+    const inp = document.getElementById('backupFileInput');
+    if (inp) { inp.value = ''; inp.click(); }
+  }
+
+  let importedData = null;
+  function handleBackupFile(ev) {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const incoming = parsed && parsed._backup && parsed.data ? parsed.data : parsed;
+        if (!incoming || typeof incoming !== 'object' || !Array.isArray(incoming.rows)) {
+          showToast('That does not look like a valid backup file');
+          return;
+        }
+        importedData = incoming;
+        // Decide: is there meaningful existing data?
+        const hasExisting = (data.rows && data.rows.length > 0) || (data.expenses && Object.keys(data.expenses).some(k => (data.expenses[k]||[]).length));
+        if (!hasExisting) {
+          // Nothing here — just restore directly (with a confirm)
+          showConfirm('Restore backup?', 'This system is empty. The uploaded backup will be loaded as your data.', 'Restore', async () => {
+            await applyRestore(importedData);
+          });
+        } else {
+          openCompareModal();
+        }
+      } catch(e) {
+        showToast('Could not read that file — is it valid JSON?');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function summarize(d) {
+    const rows = d.rows || [];
+    const periods = [...new Set(rows.map(r => r.period).filter(Boolean))].sort();
+    const editors = [...new Set(rows.map(r => r.editor).filter(Boolean))];
+    const clients = (d.clientAccounts || []).map(c => c.name);
+    let totalRev = 0, doneRows = 0;
+    rows.forEach(r => { if (r.status === 'Done') { totalRev += Number(r.revenue)||0; doneRows++; } });
+    let expCount = 0, expTotal = 0;
+    Object.values(d.expenses || {}).forEach(list => (list||[]).forEach(e => { expCount++; expTotal += Number(e.usd!=null?e.usd:(e.amount||0))||0; }));
+    return {
+      rows: rows.length, doneRows, periods, editors, clients,
+      totalRev, expCount, expTotal,
+      binRows: (d.recycleBin||[]).length,
+      binExp: (d.expenseBin||[]).length,
+    };
+  }
+
+  let compareTab = 'current';
+  function openCompareModal() {
+    let overlay = document.getElementById('compareOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'compareOverlay';
+      overlay.className = 'arobot-overlay';
+      overlay.innerHTML = `<div class="arobot-panel" style="width:520px" id="comparePanel" onclick="event.stopPropagation()"></div>`;
+      overlay.addEventListener('click', () => { overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),300); });
+      document.body.appendChild(overlay);
+    }
+    compareTab = 'current';
+    renderCompare();
+    requestAnimationFrame(() => overlay.classList.add('show'));
+  }
+  function closeCompare() {
+    const o = document.getElementById('compareOverlay');
+    if (o) { o.classList.remove('show'); setTimeout(()=>o.remove(),300); }
+  }
+  function setCompareTab(t) { compareTab = t; renderCompare(); }
+
+  function renderCompare() {
+    const panel = document.getElementById('comparePanel');
+    if (!panel) return;
+    const cur = summarize(data);
+    const upl = summarize(importedData);
+    const shown = compareTab === 'current' ? cur : upl;
+    const other = compareTab === 'current' ? upl : cur;
+
+    const diff = (a, b) => {
+      if (a === b) return '';
+      const d = a - b;
+      return ` <span style="color:${d>0?'var(--green)':'var(--amber)'};font-size:10px">(${d>0?'+':''}${d} vs ${compareTab==='current'?'uploaded':'current'})</span>`;
+    };
+    const stat = (label, val, otherVal, isNum=true) => `
+      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+        <span style="font-size:12px;color:var(--text-muted)">${label}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${val}${isNum?diff(shown[otherVal!==undefined?otherVal:label], other[otherVal!==undefined?otherVal:label]):''}</span>
+      </div>`;
+
+    const tabBtn = (key, label) => `
+      <button onclick="setCompareTab('${key}')" style="
+        flex:1;padding:9px;font-size:12px;font-weight:700;letter-spacing:0.02em;cursor:pointer;
+        border:none;border-radius:8px;font-family:var(--font-ui);
+        background:${compareTab===key?'var(--green-deep)':'transparent'};
+        color:${compareTab===key?'#052e20':'var(--text-muted)'}">${label}</button>`;
+
+    panel.innerHTML = `
+      <h3>📊 Compare & Restore<span class="ar-close" onclick="closeCompare()">✕</span></h3>
+      <p style="font-size:12px;color:var(--text-muted);margin:6px 0 14px">Switch tabs to compare your current data with the uploaded backup.</p>
+      <div style="display:flex;gap:6px;padding:4px;background:rgba(5,13,10,0.5);border-radius:10px;margin-bottom:16px">
+        ${tabBtn('current','● Current data')}
+        ${tabBtn('uploaded','⬆ Uploaded backup')}
+      </div>
+      <div style="padding:4px 2px">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Total projects</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.rows}${diff(shown.rows, other.rows)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Completed (Done)</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.doneRows}${diff(shown.doneRows, other.doneRows)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Periods (months)</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.periods.length}${diff(shown.periods.length, other.periods.length)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Editors</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.editors.length}${diff(shown.editors.length, other.editors.length)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Clients</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.clients.length}${diff(shown.clients.length, other.clients.length)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Revenue (Done)</span>
+          <span style="font-size:13px;font-weight:700;color:var(--green)">$${shown.totalRev.toLocaleString()}${diff(shown.totalRev, other.totalRev)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:12px;color:var(--text-muted)">Expenses logged</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.expCount} · $${shown.expTotal.toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0">
+          <span style="font-size:12px;color:var(--text-muted)">Recycle bins</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${shown.binRows} rows · ${shown.binExp} exp</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:10px;line-height:1.5">
+          Months present: ${shown.periods.map(p=>periodKeyToLabel(p)).join(', ') || '—'}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeCompare()">Keep Current</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmRestore()">Restore Uploaded</button>
+      </div>`;
+  }
+
+  function confirmRestore() {
+    showConfirm('Restore uploaded backup?', 'Your current data will be replaced by the uploaded backup. A safety copy of your current data will download first.', 'Restore', async () => {
+      // Auto-download current data as a safety copy before overwriting
+      exportBackup();
+      await applyRestore(importedData);
+      closeCompare();
+    }, true);
+  }
+
+  async function applyRestore(incoming) {
+    pushUndo();
+    data = { ...DEFAULT_DATA, ...incoming };
+    if (!data.columns || !data.columns.length) data.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
+    if (!data.rows) data.rows = [];
+    if (!data.expenses) data.expenses = {};
+    await saveData();
+    renderAll();
+    showToast('Backup restored successfully');
   }
 
   function downloadReportTXT() {
@@ -4455,14 +5017,43 @@
     } catch(e) { console.error('Rollover failed:', e); }
   }
 
+  // One-time fix: the old boundary (day 16 = new month) wrongly shifted rows into next month.
+  // Pull any rows sitting in a FUTURE period back into the correct current period.
+  async function fixBoundaryShift() {
+    if (data._boundaryFixV1) return; // run once
+    try {
+      const cur = currentPeriodKey();
+      let moved = 0;
+      (data.rows || []).forEach(r => {
+        const rp = r.period || cur;
+        // Any row parked in a period AFTER the (now-correct) current period gets pulled back
+        if (rp > cur) {
+          r.period = cur;
+          // If it was auto-rolled, clear that marker since it's back where it belongs
+          if (r.rolledFrom && r.rolledFrom >= cur) delete r.rolledFrom;
+          moved++;
+        }
+      });
+      data._boundaryFixV1 = true;
+      await saveData();
+      if (moved > 0) {
+        console.log(`[boundary-fix] Pulled ${moved} row(s) back to current period ${cur}`);
+        showToast(`Fixed month boundary — ${moved} project${moved===1?'':'s'} moved back to this month`);
+      }
+    } catch(e) { console.error('Boundary fix failed:', e); }
+  }
+
   async function init() {
     try {
       await loadData(); loadSession(); populateLoginDropdown();
-      // Run rollover once after data is loaded
+      // FIRST: fix any rows wrongly shifted to next month by the old 16th-boundary bug
+      await fixBoundaryShift();
+      // THEN run the normal rollover (moves genuinely-past incomplete rows forward)
       await rolloverIncomplete();
-      // Auto-purge entries older than 45 days from recycle bin
+      // Auto-purge entries older than 45 days from recycle bins
       const purged = purgeOldRecycleBin();
-      if (purged) { await saveData(); }
+      const purgedExp = purgeOldExpenseBin();
+      if (purged || purgedExp) { await saveData(); }
       document.getElementById('loadingOverlay').style.display = 'none';
       if (session) showApp(); else {
         document.getElementById('loginScreen').style.display = 'flex';
