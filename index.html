@@ -3877,14 +3877,14 @@
         <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Total Revenue</span><span class="val rev" style="font-weight:700">$${revenue.toLocaleString()}</span></div>
         <div class="fin-stat"><span class="label">Total Expenses</span><span class="val neg">- $${expenses.toLocaleString()}</span></div>
         <div class="fin-big">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px">
-            <span style="color:var(--text-muted);font-size:20px;font-weight:700">$</span>
-            <input type="number" id="profitInput" value="${profit}" onchange="updateProfitOverride(this.value)"
-              style="width:150px;text-align:center;font-size:28px;font-weight:800;background:transparent;border:none;border-bottom:1px dashed var(--border);color:${profit>=0?'var(--green-bright)':'var(--red)'};font-family:var(--font-display)">
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+            <span style="color:var(--text-muted);font-size:22px;font-weight:700;font-family:var(--font-display)">$</span>
+            <input type="number" step="any" id="profitInput" value="${Math.round(profit*100)/100}" onchange="updateProfitOverride(this.value)"
+              style="width:auto;min-width:120px;max-width:230px;text-align:center;font-size:32px;font-weight:800;background:transparent;border:none;border-bottom:1px dashed var(--border);color:${profit>=0?'var(--green-bright)':'var(--red)'};font-family:var(--font-display)">
           </div>
           <div class="cap">Net Profit ${profitOverride!=null&&profitOverride!==''?'<span style="color:var(--amber);font-size:10px">· manual</span>':''}</div>
           <div style="margin-top:8px;color:var(--text-dim);font-size:14px;font-weight:700">৳ ${taka(profit, rate).toLocaleString()}</div>
-          ${profitOverride!=null&&profitOverride!==''?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Auto: $${autoProfit.toLocaleString()} · <a href="#" onclick="clearProfitOverride();return false" style="color:var(--green)">reset</a></div>`:''}
+          ${profitOverride!=null&&profitOverride!==''?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Auto: $${(Math.round(autoProfit*100)/100).toLocaleString()} · <a href="#" onclick="clearProfitOverride();return false" style="color:var(--green)">reset</a></div>`:''}
           <input type="text" id="profitNoteInput" value="${escapeAttr(profitNote)}" placeholder="Add a note about this profit..." onchange="updateProfitNote(this.value)"
             style="width:100%;margin-top:12px;padding:8px 10px;font-size:12px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui)">
         </div>
@@ -3913,26 +3913,22 @@
 
     html += '</div>';
 
-    // Expenses — grouped by type, each with timestamps
+    // Expenses — 2-column layout
     const expList = data.expenses[pk] || [];
-    const expTypes = [
-      { key:'regular', label:'Regular Expenses', icon:'💳' },
-      { key:'salary', label:'Salary + Bonuses', icon:'💰' },
-      { key:'asset', label:'Assets', icon:'🖥️' },
-      { key:'food', label:'Food Expenses', icon:'🍽️' },
-    ];
     const fmtTS = (iso) => {
       if (!iso) return '';
       const d = new Date(iso);
       return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     };
-    const renderExpRows = (rows) => rows.length === 0
-      ? '<tr><td colspan="5" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>'
+    const renderExpRows = (rows, showKind) => rows.length === 0
+      ? `<tr><td colspan="${showKind?6:5}" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>`
       : rows.map(e => {
           const usd = expenseUSD(e, rate);
           const tk = e.taka != null ? e.taka : Math.round(usd * rate);
+          const kindCell = showKind ? `<td><div class="exp-cell" onclick="toggleSalaryKind('${e.id}')" style="cursor:pointer">${(e.salaryKind==='bonus')?'<span style="color:#ffce4a;font-size:11px;font-weight:700">Bonus</span>':'<span style="color:#7ee2b8;font-size:11px;font-weight:700">Salary</span>'}</div></td>` : '';
           return `<tr>
             <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div>${e.createdAt?`<div style="font-size:9px;color:var(--text-muted);opacity:0.6;padding:0 8px">${fmtTS(e.createdAt)}</div>`:''}</td>
+            ${kindCell}
             <td><div class="exp-cell ${e.taka?'':'empty'}" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${Number(tk).toLocaleString()}</span>`:'৳ 0'}</div></td>
             <td><div class="exp-cell ${usd?'':'empty'}" onclick="editExpense(event,'${e.id}','usd')">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
             <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
@@ -3940,35 +3936,46 @@
           </tr>`;
         }).join('');
 
-    html += '<div class="fin-grid">';
-    html += `<div class="fin-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <h3 style="margin:0">Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
-        <button class="btn-tb" onclick="openFinanceBin()" style="font-size:11px;padding:6px 12px">🗑 Bin</button>
-      </div>`;
-    expTypes.forEach(t => {
-      // Food admin only sees food; others see all
-      if (foodOnlyMode() && t.key !== 'food') return;
-      const rows = expList.filter(e => (e.type||'regular') === t.key);
+    const expSection = (key, label, icon, showKind) => {
+      const rows = expList.filter(e => (e.type||'regular') === key);
       const subtotal = rows.reduce((s,e) => s + expenseUSD(e, rate), 0);
-      html += `<div style="margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:700;color:var(--text)">${t.icon} ${t.label}</span>
-          <span style="font-size:11px;color:var(--text-muted)">$${subtotal.toLocaleString()}</span>
+      const headCols = showKind
+        ? `<th>Expense</th><th style="width:70px">Type</th><th style="width:90px">Taka (৳)</th><th style="width:85px">USD ($)</th><th>Notes</th><th style="width:30px"></th>`
+        : `<th>Expense</th><th style="width:95px">Taka (৳)</th><th style="width:90px">USD ($)</th><th>Notes</th><th style="width:30px"></th>`;
+      return `<div style="margin-bottom:22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${icon} ${label}</span>
+          <span style="font-size:12px;color:var(--text-muted)">$${subtotal.toLocaleString()}</span>
         </div>
         <table class="exp-table">
-          <thead><tr><th>Expense</th><th style="width:100px">Taka (৳)</th><th style="width:95px">USD ($)</th><th>Notes</th><th style="width:30px"></th></tr></thead>
-          <tbody>${renderExpRows(rows)}</tbody>
+          <thead><tr>${headCols}</tr></thead>
+          <tbody>${renderExpRows(rows, showKind)}</tbody>
         </table>
-        <div class="exp-add" onclick="addExpense('${t.key}')">＋ Add ${t.label.toLowerCase()}</div>
+        <div class="exp-add" onclick="addExpense('${key}')">＋ Add ${label.toLowerCase()}</div>
       </div>`;
-    });
-    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
-          <span class="rate-label">Total expenses</span>
-          <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(expenses, rate).toLocaleString()}</span> · <span class="exp-amount">$${expenses.toLocaleString()}</span></span>
+    };
+
+    // Two-column expense grid: LEFT = Regular + Food, RIGHT = Salary/Bonus + Assets
+    html += `<div class="fin-card" style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin:0">Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
+        <button class="btn-tb" onclick="openFinanceBin()" style="font-size:11px;padding:6px 12px">🗑 Bin</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          ${expSection('regular','Regular Expenses','💳', false)}
+          ${expSection('food','Food Expenses','🍽️', false)}
         </div>
-      </div>`;
-    html += '</div>';
+        <div>
+          ${expSection('salary','Salary + Bonuses','💰', true)}
+          ${expSection('asset','Assets','🖥️', false)}
+        </div>
+      </div>
+      <div style="margin-top:8px;padding-top:14px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span class="rate-label" style="font-size:13px;font-weight:700">Total expenses</span>
+        <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(expenses, rate).toLocaleString()}</span> · <span class="exp-amount">$${expenses.toLocaleString()}</span></span>
+      </div>
+    </div>`;
 
     // Collapsible calculator
     const calcOpen = window._calcOpen || false;
@@ -4148,12 +4155,20 @@
   async function addExpense(type) {
     const pk = activePeriodKey();
     if (!data.expenses[pk]) data.expenses[pk] = [];
-    data.expenses[pk].push({
+    const item = {
       id: 'e_'+Date.now()+'_'+Math.floor(Math.random()*1000),
       name:'', usd:null, taka:null, notes:'',
       type: type || 'regular',
       createdAt: new Date().toISOString()
-    });
+    };
+    if (item.type === 'salary') item.salaryKind = 'salary'; // default; toggle to 'bonus'
+    data.expenses[pk].push(item);
+    renderFinance(); await saveData();
+  }
+  async function toggleSalaryKind(id) {
+    const e = findExpense(id); if (!e) return;
+    pushUndo();
+    e.salaryKind = (e.salaryKind === 'bonus') ? 'salary' : 'bonus';
     renderFinance(); await saveData();
   }
   function findExpense(id) {
