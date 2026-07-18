@@ -702,17 +702,46 @@
   .fin-big .cap { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin-top: 4px; }
 
   .exp-table { width: 100%; border-collapse: collapse; }
-  .exp-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px; font-weight: 700; }
-  .exp-table td { padding: 0; border-bottom: 1px solid rgba(28,56,43,0.4); }
-  .exp-cell { padding: 10px 8px; cursor: text; min-height: 38px; display: flex; align-items: center; }
-  .exp-cell.empty { color: var(--text-muted); font-style: italic; opacity: 0.6; }
-  .exp-input { width: 100%; padding: 10px 8px; background: rgba(94,231,176,0.06); border: 1px solid var(--green); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+  .exp-table th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); padding: 6px 10px; font-weight: 700; opacity: 0.7; }
+  .exp-table td { padding: 0; border-bottom: 1px solid rgba(28,56,43,0.3); }
+  .exp-table tr:last-child td { border-bottom: none; }
+  .exp-cell { padding: 9px 10px; cursor: text; min-height: 34px; display: flex; align-items: center; font-size: 13px; }
+  .exp-cell.empty { color: var(--text-muted); font-style: italic; opacity: 0.5; }
+  .exp-input { width: 100%; padding: 9px 10px; background: rgba(94,231,176,0.06); border: 1px solid var(--green); color: var(--text); font-size: 13px; font-family: inherit; outline: none; border-radius: 6px; }
   .exp-amount { color: var(--red); font-weight: 600; }
   .exp-del { opacity: 0; cursor: pointer; color: var(--text-muted); font-size: 14px; transition: all 0.15s; }
-  tr:hover .exp-del { opacity: 0.6; }
+  tr:hover .exp-del { opacity: 0.5; }
   .exp-del:hover { opacity: 1 !important; color: var(--red); }
-  .exp-add { display: flex; align-items: center; gap: 6px; padding: 10px 8px; color: var(--text-muted); cursor: pointer; font-size: 13px; font-weight: 600; }
-  .exp-add:hover { color: var(--green); }
+  .exp-add { display: flex; align-items: center; gap: 6px; padding: 9px 10px; margin-top: 4px; color: var(--text-muted); cursor: pointer; font-size: 12px; font-weight: 600; border: 1px dashed rgba(28,56,43,0.6); border-radius: 8px; transition: all 0.15s; }
+  .exp-add:hover { color: var(--green); border-color: var(--green-deep); background: rgba(94,231,176,0.04); }
+
+  /* Distinct expense section cards */
+  .exp-section {
+    background: rgba(5,13,10,0.35);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .exp-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 10px; margin-bottom: 6px;
+    border-bottom: 1px solid rgba(28,56,43,0.5);
+  }
+  .exp-section-head .es-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--font-display); letter-spacing: -0.01em; }
+  .exp-section-head .es-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .exp-section-head .es-total { font-size: 13px; font-weight: 700; color: var(--text); }
+  .exp-section.tint-regular .es-icon { background: rgba(94,231,176,0.12); }
+  .exp-section.tint-food .es-icon { background: rgba(255,147,71,0.14); }
+  .exp-section.tint-salary .es-icon { background: rgba(255,206,74,0.14); }
+  .exp-section.tint-asset .es-icon { background: rgba(74,158,255,0.14); }
+  .exp-section.tint-regular { border-left: 3px solid rgba(94,231,176,0.5); }
+  .exp-section.tint-food { border-left: 3px solid rgba(255,147,71,0.5); }
+  .exp-section.tint-salary { border-left: 3px solid rgba(255,206,74,0.5); }
+  .exp-section.tint-asset { border-left: 3px solid rgba(74,158,255,0.5); }
+  .exp-col-title { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; opacity: 0.65; }
+  .fin-bin-btn { font-size: 12px !important; padding: 8px 14px !important; display: inline-flex; align-items: center; gap: 6px; border-radius: 9px !important; background: rgba(5,13,10,0.5) !important; border: 1px solid var(--border) !important; color: var(--text-muted) !important; transition: all 0.15s; }
+  .fin-bin-btn:hover { color: var(--text) !important; border-color: var(--green-deep) !important; background: rgba(94,231,176,0.05) !important; }
 
   .tier-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   .tier-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; letter-spacing: 0.5px; }
@@ -3774,6 +3803,12 @@
     return Number(data.monthRates[pk]) || 0;
   }
   function taka(usd, rate) { return Math.round((Number(usd)||0) * (Number(rate)||0)); }
+  function fmtMoney(n) {
+    n = Number(n) || 0;
+    // Round to 2 decimals, then drop trailing zeros (4540.00 -> 4,540; 77.60 -> 77.6)
+    const rounded = Math.round(n * 100) / 100;
+    return rounded.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
 
   function renderFoodOnly(pk) {
     const rate = monthRate(pk);
@@ -3872,10 +3907,10 @@
     html += `
       <div class="fin-card">
         <h3>Monthly Summary</h3>
-        <div class="fin-stat"><span class="label">USD Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(net of Fiverr 20%)</span></span><span class="val rev">$${usdRevenue.toLocaleString()}</span></div>
-        ${takaRevenueUSD > 0 ? `<div class="fin-stat"><span class="label">Taka Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(৳${takaRevenueRaw.toLocaleString()})</span></span><span class="val rev">+ $${takaRevenueUSD.toLocaleString()}</span></div>` : ''}
-        <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Total Revenue</span><span class="val rev" style="font-weight:700">$${revenue.toLocaleString()}</span></div>
-        <div class="fin-stat"><span class="label">Total Expenses</span><span class="val neg">- $${expenses.toLocaleString()}</span></div>
+        <div class="fin-stat"><span class="label">USD Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(net of Fiverr 20%)</span></span><span class="val rev">$${fmtMoney(usdRevenue)}</span></div>
+        ${takaRevenueUSD > 0 ? `<div class="fin-stat"><span class="label">Taka Revenue <span style="font-size:10px;color:var(--text-muted);opacity:0.7">(৳${takaRevenueRaw.toLocaleString()})</span></span><span class="val rev">+ $${fmtMoney(takaRevenueUSD)}</span></div>` : ''}
+        <div class="fin-stat" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:6px"><span class="label" style="font-weight:700;color:var(--text)">Total Revenue</span><span class="val rev" style="font-weight:700">$${fmtMoney(revenue)}</span></div>
+        <div class="fin-stat"><span class="label">Total Expenses</span><span class="val neg">- $${fmtMoney(expenses)}</span></div>
         <div class="fin-big">
           <div style="display:flex;align-items:center;justify-content:center;gap:6px">
             <span style="color:var(--text-muted);font-size:22px;font-weight:700;font-family:var(--font-display)">$</span>
@@ -3903,7 +3938,7 @@
               <input type="number" class="split-pct-input" value="${pct}" min="0" max="100" onchange="updateSplit('${escapeAttr(name)}',this.value)">
               <span style="color:var(--text-muted);font-size:12px">%</span>
               <span class="split-amounts">
-                <div class="split-profit-amt">$${profitCut.toLocaleString()}</div>
+                <div class="split-profit-amt">$${fmtMoney(profitCut)}</div>
                 <div class="split-taka">৳ ${taka(profitCut, rate).toLocaleString()}</div>
               </span>
             </div>`;
@@ -3940,12 +3975,12 @@
       const rows = expList.filter(e => (e.type||'regular') === key);
       const subtotal = rows.reduce((s,e) => s + expenseUSD(e, rate), 0);
       const headCols = showKind
-        ? `<th>Expense</th><th style="width:70px">Type</th><th style="width:90px">Taka (৳)</th><th style="width:85px">USD ($)</th><th>Notes</th><th style="width:30px"></th>`
-        : `<th>Expense</th><th style="width:95px">Taka (৳)</th><th style="width:90px">USD ($)</th><th>Notes</th><th style="width:30px"></th>`;
-      return `<div style="margin-bottom:22px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">${icon} ${label}</span>
-          <span style="font-size:12px;color:var(--text-muted)">$${subtotal.toLocaleString()}</span>
+        ? `<th>Expense</th><th style="width:64px">Type</th><th style="width:88px">Taka (৳)</th><th style="width:80px">USD ($)</th><th>Notes</th><th style="width:28px"></th>`
+        : `<th>Expense</th><th style="width:92px">Taka (৳)</th><th style="width:84px">USD ($)</th><th>Notes</th><th style="width:28px"></th>`;
+      return `<div class="exp-section tint-${key}">
+        <div class="exp-section-head">
+          <span class="es-title"><span class="es-icon">${icon}</span>${label}</span>
+          <span class="es-total">$${subtotal.toLocaleString()}</span>
         </div>
         <table class="exp-table">
           <thead><tr>${headCols}</tr></thead>
@@ -3957,23 +3992,25 @@
 
     // Two-column expense grid: LEFT = Regular + Food, RIGHT = Salary/Bonus + Assets
     html += `<div class="fin-card" style="margin-top:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
         <h3 style="margin:0">Expenses — ${escapeHtml(periodKeyToLabel(pk))}</h3>
-        <button class="btn-tb" onclick="openFinanceBin()" style="font-size:11px;padding:6px 12px">🗑 Bin</button>
+        <button class="btn-tb fin-bin-btn" onclick="openFinanceBin()">🗑 Recycle Bin</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div>
+          <div class="exp-col-title">Operating Costs</div>
           ${expSection('regular','Regular Expenses','💳', false)}
           ${expSection('food','Food Expenses','🍽️', false)}
         </div>
         <div>
+          <div class="exp-col-title">People & Assets</div>
           ${expSection('salary','Salary + Bonuses','💰', true)}
           ${expSection('asset','Assets','🖥️', false)}
         </div>
       </div>
-      <div style="margin-top:8px;padding-top:14px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;align-items:center">
-        <span class="rate-label" style="font-size:13px;font-weight:700">Total expenses</span>
-        <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(expenses, rate).toLocaleString()}</span> · <span class="exp-amount">$${expenses.toLocaleString()}</span></span>
+      <div style="margin-top:6px;padding:16px 18px;background:rgba(5,13,10,0.5);border-radius:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:14px;font-weight:700;color:var(--text)">Total Expenses</span>
+        <span style="font-weight:800;font-size:15px"><span style="color:var(--green-bright)">৳ ${taka(expenses, rate).toLocaleString()}</span> <span style="color:var(--text-muted);font-weight:400">·</span> <span class="exp-amount" style="font-size:15px">$${expenses.toLocaleString()}</span></span>
       </div>
     </div>`;
 
@@ -5012,21 +5049,33 @@
   async function rolloverIncomplete() {
     try {
       const cur = currentPeriodKey();
+      // Only run this rollover once per period. If we've already rolled for THIS current period, skip.
+      if (!data.lastRolloverFor) data.lastRolloverFor = null;
+      if (data.lastRolloverFor === cur) return;
+
+      // Determine the immediately previous period key (the one that just ended).
+      // Rows from that specific prior period that are still non-Done get moved forward.
+      // Rows from OLDER periods stay where they are — admin may be editing them intentionally.
+      const [y, m] = cur.split('-').map(Number);
+      const prevM = m === 1 ? 12 : m - 1;
+      const prevY = m === 1 ? y - 1 : y;
+      const prev = `${prevY}-${String(prevM).padStart(2,'0')}`;
+
       let moved = 0;
-      const affected = {};
       (data.rows || []).forEach(r => {
         const rp = r.period || cur;
-        if (rp < cur && r.status !== 'Done') {
+        // Only move rows from the IMMEDIATELY previous period, not older ones
+        if (rp === prev && r.status !== 'Done') {
           if (!r.rolledFrom) r.rolledFrom = rp;
           r.period = cur;
           moved++;
-          affected[rp] = (affected[rp] || 0) + 1;
         }
       });
+      // Mark this period as rolled — even if 0 rows moved, so we don't repeat the check every load
+      data.lastRolloverFor = cur;
+      await saveData();
       if (moved > 0) {
-        await saveData();
-        const summary = Object.entries(affected).map(([p,c]) => `${c} from ${p}`).join(', ');
-        console.log(`[rollover] Moved ${moved} non-Done row(s) to ${cur}: ${summary}`);
+        console.log(`[rollover] Moved ${moved} non-Done row(s) from ${prev} to ${cur}`);
         showToast(`Auto-rolled ${moved} incomplete project${moved===1?'':'s'} to this month`);
       }
     } catch(e) { console.error('Rollover failed:', e); }
