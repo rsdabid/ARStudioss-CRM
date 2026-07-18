@@ -1559,6 +1559,67 @@
   function editorTeam(name) { return data.teams.find(t => t.members.includes(name)); }
   function isIndividual(name) { return (data.individuals || []).includes(name); }
 
+  // ===== Per-period roster snapshots =====
+  // A snapshot freezes team composition for a specific past period so historical
+  // leaderboards/team stats don't change when the current roster changes.
+  function rosterSnapshotFor(pk) {
+    if (data.rosterHistory && data.rosterHistory[pk]) return data.rosterHistory[pk];
+    return null;
+  }
+  function teamsFor(pk) {
+    const snap = rosterSnapshotFor(pk);
+    return snap && snap.teams ? snap.teams : data.teams;
+  }
+  function individualsFor(pk) {
+    const snap = rosterSnapshotFor(pk);
+    return snap && snap.individuals ? snap.individuals : (data.individuals || []);
+  }
+  function editorTeamFor(name, pk) {
+    return teamsFor(pk).find(t => t.members.includes(name));
+  }
+  function allEditorsFor(pk) {
+    const names = [];
+    teamsFor(pk).forEach(t => t.members.forEach(m => { if (!names.includes(m)) names.push(m); }));
+    individualsFor(pk).forEach(m => { if (!names.includes(m)) names.push(m); });
+    return names;
+  }
+  // Take a fresh snapshot of the current roster for a given period
+  async function snapshotRosterFor(pk) {
+    if (!data.rosterHistory) data.rosterHistory = {};
+    data.rosterHistory[pk] = {
+      teams: JSON.parse(JSON.stringify(data.teams || [])),
+      individuals: [...(data.individuals || [])],
+      snapshotAt: new Date().toISOString(),
+    };
+    await saveData();
+  }
+  // One-time migration: for every past period that has rows but no snapshot yet,
+  // lock the CURRENT roster in as the historical roster (as the user requested).
+  async function snapshotPastPeriodsOnce() {
+    if (data._rosterSnapshotV1) return;
+    if (!data.rosterHistory) data.rosterHistory = {};
+    const cur = currentPeriodKey();
+    const periods = new Set();
+    (data.rows || []).forEach(r => { if (r.period) periods.add(r.period); });
+    Object.keys(data.expenses || {}).forEach(k => periods.add(k));
+    periods.add(cur); // also snapshot current so it's captured now
+    let created = 0;
+    periods.forEach(pk => {
+      if (!data.rosterHistory[pk]) {
+        data.rosterHistory[pk] = {
+          teams: JSON.parse(JSON.stringify(data.teams || [])),
+          individuals: [...(data.individuals || [])],
+          snapshotAt: new Date().toISOString(),
+          fromMigration: pk !== cur,
+        };
+        created++;
+      }
+    });
+    data._rosterSnapshotV1 = true;
+    await saveData();
+    if (created > 0) console.log(`[roster-snapshot] Locked in ${created} historical roster(s)`);
+  }
+
   function renderAll() {
     if (!selectedPeriod) selectedPeriod = currentPeriodKey();
     populateMonthSelectors();
@@ -3554,16 +3615,19 @@
       container.innerHTML = `<div class="locked-board"><div class="locked-icon">🔒</div><div class="locked-title">Results coming on the 16th</div><div class="locked-sub">The leaderboard is hidden for the final stretch. Keep pushing — rankings reveal in ${days} day${days===1?'':'s'}.</div></div>`;
       return;
     }
-    const editorPoints = {}, teamPoints = {};
-    data.teams.forEach(t => teamPoints[t.id] = 0);
-    allEditors().forEach(e => editorPoints[e] = 0);
     const pk = activePeriodKey();
+    // Use the ROSTER as it was for THIS period, not the current live roster
+    const periodTeams = teamsFor(pk);
+    const periodEditors = allEditorsFor(pk);
+    const editorPoints = {}, teamPoints = {};
+    periodTeams.forEach(t => teamPoints[t.id] = 0);
+    periodEditors.forEach(e => editorPoints[e] = 0);
     data.rows.filter(r => (r.period || currentPeriodKey()) === pk && r.status === 'Done').forEach(r => {
       if (!r.editor) return;
       const pts = (r.points!=null) ? Number(r.points) : pointsFromRevenue(r.revenue);
       if (editorPoints[r.editor]==null) editorPoints[r.editor] = 0;
       editorPoints[r.editor] += pts;
-      const t = editorTeam(r.editor); if (t) teamPoints[t.id] += pts;
+      const t = editorTeamFor(r.editor, pk); if (t) teamPoints[t.id] = (teamPoints[t.id]||0) + pts;
     });
 
     // Team colors
@@ -3573,10 +3637,10 @@
     };
     const indivColor = { main:'#8aa3b0', soft:'rgba(138,163,176,0.12)', border:'rgba(138,163,176,0.3)' };
 
-    const teamsSorted = data.teams.map(t => ({ id:t.id, leader:t.leader, name:t.name, points:teamPoints[t.id]||0 })).sort((a,b) => b.points - a.points);
+    const teamsSorted = periodTeams.map(t => ({ id:t.id, leader:t.leader, name:t.name, points:teamPoints[t.id]||0 })).sort((a,b) => b.points - a.points);
 
     // Global editor ranking for the fun titles
-    const allEds = allEditors().map(e => ({ name:e, points:editorPoints[e]||0, team: editorTeam(e) })).sort((a,b) => b.points - a.points);
+    const allEds = periodEditors.map(e => ({ name:e, points:editorPoints[e]||0, team: editorTeamFor(e, pk) })).sort((a,b) => b.points - a.points);
     const totalEds = allEds.length;
     const globalRank = {};
     allEds.forEach((e, i) => globalRank[e.name] = i);
@@ -5049,29 +5113,42 @@
   async function rolloverIncomplete() {
     try {
       const cur = currentPeriodKey();
-      // Only run this rollover once per period. If we've already rolled for THIS current period, skip.
       if (!data.lastRolloverFor) data.lastRolloverFor = null;
       if (data.lastRolloverFor === cur) return;
 
-      // Determine the immediately previous period key (the one that just ended).
-      // Rows from that specific prior period that are still non-Done get moved forward.
-      // Rows from OLDER periods stay where they are — admin may be editing them intentionally.
       const [y, m] = cur.split('-').map(Number);
       const prevM = m === 1 ? 12 : m - 1;
       const prevY = m === 1 ? y - 1 : y;
       const prev = `${prevY}-${String(prevM).padStart(2,'0')}`;
 
+      // Lock in the roster for the just-ended (previous) period, so its leaderboard
+      // won't change if we shuffle team members going forward.
+      if (!data.rosterHistory) data.rosterHistory = {};
+      if (!data.rosterHistory[prev]) {
+        data.rosterHistory[prev] = {
+          teams: JSON.parse(JSON.stringify(data.teams || [])),
+          individuals: [...(data.individuals || [])],
+          snapshotAt: new Date().toISOString(),
+        };
+      }
+      // Also seed the new current period with the current live roster
+      if (!data.rosterHistory[cur]) {
+        data.rosterHistory[cur] = {
+          teams: JSON.parse(JSON.stringify(data.teams || [])),
+          individuals: [...(data.individuals || [])],
+          snapshotAt: new Date().toISOString(),
+        };
+      }
+
       let moved = 0;
       (data.rows || []).forEach(r => {
         const rp = r.period || cur;
-        // Only move rows from the IMMEDIATELY previous period, not older ones
         if (rp === prev && r.status !== 'Done') {
           if (!r.rolledFrom) r.rolledFrom = rp;
           r.period = cur;
           moved++;
         }
       });
-      // Mark this period as rolled — even if 0 rows moved, so we don't repeat the check every load
       data.lastRolloverFor = cur;
       await saveData();
       if (moved > 0) {
@@ -5112,6 +5189,8 @@
       await loadData(); loadSession(); populateLoginDropdown();
       // FIRST: fix any rows wrongly shifted to next month by the old 16th-boundary bug
       await fixBoundaryShift();
+      // Lock in per-period roster snapshots (one-time migration for all past periods)
+      await snapshotPastPeriodsOnce();
       // THEN run the normal rollover (moves genuinely-past incomplete rows forward)
       await rolloverIncomplete();
       // Auto-purge entries older than 45 days from recycle bins
