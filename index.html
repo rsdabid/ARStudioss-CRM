@@ -1567,10 +1567,14 @@
     return null;
   }
   function teamsFor(pk) {
+    // The live/current period always uses the current roster — team changes reflect immediately.
+    // Only PAST periods use their locked snapshot.
+    if (pk === currentPeriodKey()) return data.teams;
     const snap = rosterSnapshotFor(pk);
     return snap && snap.teams ? snap.teams : data.teams;
   }
   function individualsFor(pk) {
+    if (pk === currentPeriodKey()) return (data.individuals || []);
     const snap = rosterSnapshotFor(pk);
     return snap && snap.individuals ? snap.individuals : (data.individuals || []);
   }
@@ -1596,13 +1600,27 @@
   // One-time migration: for every past period that has rows but no snapshot yet,
   // lock the CURRENT roster in as the historical roster (as the user requested).
   async function snapshotPastPeriodsOnce() {
-    if (data._rosterSnapshotV1) return;
+    if (data._rosterSnapshotV1) {
+      // Cleanup: earlier version wrongly locked the CURRENT period roster. Remove it so
+      // team changes reflect immediately for the live period.
+      if (data.rosterHistory && !data._rosterSnapshotV1Fix) {
+        const cur = currentPeriodKey();
+        if (data.rosterHistory[cur]) {
+          delete data.rosterHistory[cur];
+          data._rosterSnapshotV1Fix = true;
+          await saveData();
+          console.log(`[roster-snapshot] Cleared stale current-period snapshot for ${cur}`);
+        }
+      }
+      return;
+    }
     if (!data.rosterHistory) data.rosterHistory = {};
     const cur = currentPeriodKey();
     const periods = new Set();
     (data.rows || []).forEach(r => { if (r.period) periods.add(r.period); });
     Object.keys(data.expenses || {}).forEach(k => periods.add(k));
-    periods.add(cur); // also snapshot current so it's captured now
+    // Do NOT snapshot the current period — it stays live so team changes reflect immediately.
+    // It gets snapshotted automatically when the period ends (rollover on the 17th).
     let created = 0;
     periods.forEach(pk => {
       if (!data.rosterHistory[pk]) {
