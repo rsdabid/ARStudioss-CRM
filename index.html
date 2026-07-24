@@ -838,6 +838,29 @@
   }
   .lead-add-card:hover { color: var(--green); border-color: var(--green-deep); background: rgba(94,231,176,0.03); }
 
+  /* Cards tinted to their column color */
+  .lead-col.stage-new .lead-card { border-left: 3px solid #4a9eff; }
+  .lead-col.stage-contacted .lead-card { border-left: 3px solid #7ee2b8; }
+  .lead-col.stage-followup .lead-card { border-left: 3px solid #ffce4a; }
+  .lead-col.stage-booked .lead-card { border-left: 3px solid #a374ff; }
+  .lead-col.stage-paid .lead-card { border-left: 3px solid var(--green-bright); background: rgba(124,242,192,0.06); }
+  .lead-col.stage-lost .lead-card { border-left: 3px solid #ff5252; opacity: 0.7; }
+  /* overdue/due-today keep their stronger full highlight, overriding the tint */
+  .lead-card.overdue { border-left-color: #ff5252 !important; }
+  .lead-card.due-today { border-left-color: #ffce4a !important; }
+
+  /* Paid celebration */
+  #paidCelebration { position: fixed; inset: 0; z-index: 900; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.35s; overflow: hidden; }
+  #paidCelebration.show { opacity: 1; }
+  #paidCelebration .paid-burst { text-align: center; transform: scale(0.6); transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  #paidCelebration.show .paid-burst { transform: scale(1); }
+  #paidCelebration .paid-check { font-size: 68px; animation: paidPop 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes paidPop { 0%{transform:scale(0) rotate(-30deg)} 100%{transform:scale(1) rotate(0)} }
+  #paidCelebration .paid-title { font-size: 34px; font-weight: 800; color: var(--green-bright); font-family: var(--font-display); letter-spacing: -0.02em; margin-top: 6px; text-shadow: 0 4px 24px rgba(124,242,192,0.4); }
+  #paidCelebration .paid-name { font-size: 15px; color: var(--text); margin-top: 6px; font-weight: 600; }
+  #paidCelebration .confetti { position: absolute; top: -20px; border-radius: 2px; animation: confettiFall linear forwards; }
+  @keyframes confettiFall { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(105vh) rotate(720deg);opacity:0.9} }
+
   .tier-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   .tier-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--text-muted); padding: 6px 8px; letter-spacing: 0.5px; }
   .tier-table td { padding: 7px 8px; font-size: 13px; border-top: 1px solid rgba(28,56,43,0.4); }
@@ -4204,7 +4227,7 @@
           <span class="lead-col-count">${cards.length}</span>
         </div>
         <div class="lead-cards">${body}</div>
-        ${s.key === 'new' ? `<div class="lead-add-card" onclick="openLeadEditor()">＋ Add lead</div>` : ''}
+        ${s.key === 'new' ? `<div class="lead-add-card" onclick="openLeadEditor()">＋ New lead</div>` : ''}
       </div>`;
     }).join('');
 
@@ -4259,8 +4282,37 @@
     }
     // Paid or Lost — clear follow-up so it stops nagging
     if (stage === 'paid' || stage === 'lost') lead.nextFollowUp = null;
+    const wasNotPaid = true;
     renderLeads(); await saveData();
-    showToast(`Moved to ${LEAD_STAGES.find(s=>s.key===stage).label}`);
+    if (stage === 'paid') {
+      celebratePaid(lead.name);
+    } else {
+      showToast(`Moved to ${LEAD_STAGES.find(s=>s.key===stage).label}`);
+    }
+  }
+
+  // Unique celebration when a lead converts to Paid 🎉
+  function celebratePaid(name) {
+    const overlay = document.createElement('div');
+    overlay.id = 'paidCelebration';
+    overlay.innerHTML = `
+      <div class="paid-burst">
+        <div class="paid-check">💰</div>
+        <div class="paid-title">Deal Closed!</div>
+        <div class="paid-name">${escapeHtml(name || 'New client')} just went Paid</div>
+      </div>`;
+    document.body.appendChild(overlay);
+    // Confetti pieces
+    const colors = ['#5EE7B0','#ffce4a','#4a9eff','#ff9347','#a374ff','#ff5252','#7CF2C0'];
+    for (let i = 0; i < 80; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      const size = 6 + Math.random() * 8;
+      c.style.cssText = `left:${Math.random()*100}vw;width:${size}px;height:${size*0.4}px;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.5}s;animation-duration:${1.8+Math.random()*1.4}s;transform:rotate(${Math.random()*360}deg)`;
+      overlay.appendChild(c);
+    }
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    setTimeout(() => { overlay.classList.remove('show'); setTimeout(()=>overlay.remove(), 400); }, 2600);
   }
 
   async function bumpFollowUp(id) {
@@ -4418,10 +4470,12 @@
   }
 
   function deleteLead(id) {
+    // Close the lead editor first so the confirm dialog is visible on top
+    const editor = document.getElementById('leadEditorModal');
+    if (editor) editor.remove();
     showConfirm('Delete this lead?', 'This cannot be undone from the leads pipeline.', 'Delete', async () => {
       pushUndo();
       data.leads = (data.leads||[]).filter(l => l.id !== id);
-      const m = document.getElementById('leadEditorModal'); if (m) m.remove();
       renderLeads(); await saveData();
       showToast('Lead removed');
     }, true);
