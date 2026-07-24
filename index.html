@@ -4302,7 +4302,18 @@
         <div class="grid-2col" style="gap:12px">
           <div>
             <div class="notes-label">Source</div>
-            <input type="text" id="leadSource" value="${escapeAttr(l.source)}" placeholder="IG DM, referral, cold email…" style="width:100%;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px">
+            <select id="leadSourceSel" onchange="onLeadSourceChange()" style="width:100%;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px">
+              ${(() => {
+                const preset = ['Cold Email','Instagram','LinkedIn'];
+                const isPreset = preset.includes(l.source);
+                const opts = [`<option value="" ${!l.source?'selected':''}>Select…</option>`];
+                preset.forEach(p => opts.push(`<option value="${p}" ${l.source===p?'selected':''}>${p}</option>`));
+                opts.push(`<option value="__other__" ${(l.source && !isPreset)?'selected':''}>Others</option>`);
+                return opts.join('');
+              })()}
+            </select>
+            <input type="text" id="leadSourceOther" value="${escapeAttr((['Cold Email','Instagram','LinkedIn'].includes(l.source))?'':(l.source||''))}" placeholder="Type the source…"
+              style="width:100%;margin-top:8px;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px;display:${(l.source && !['Cold Email','Instagram','LinkedIn'].includes(l.source))?'block':'none'}">
           </div>
           <div>
             <div class="notes-label">Stage</div>
@@ -4338,6 +4349,18 @@
     setTimeout(() => document.getElementById('leadName').focus(), 50);
   }
 
+  function onLeadSourceChange() {
+    const sel = document.getElementById('leadSourceSel');
+    const other = document.getElementById('leadSourceOther');
+    if (!sel || !other) return;
+    if (sel.value === '__other__') {
+      other.style.display = 'block';
+      other.focus();
+    } else {
+      other.style.display = 'none';
+    }
+  }
+
   function pickFuChip(btn) {
     const days = btn.dataset.days;
     const input = document.getElementById('leadFollowUp');
@@ -4360,10 +4383,14 @@
     ensureLeads();
     const name = document.getElementById('leadName').value.trim();
     if (!name) { showToast('Name is required'); return; }
+    const srcSel = document.getElementById('leadSourceSel').value;
+    const sourceVal = srcSel === '__other__'
+      ? document.getElementById('leadSourceOther').value.trim()
+      : srcSel;
     const payload = {
       name,
       contact: document.getElementById('leadContact').value.trim(),
-      source:  document.getElementById('leadSource').value.trim(),
+      source:  sourceVal,
       stage:   document.getElementById('leadStage').value,
       nextFollowUp: document.getElementById('leadFollowUp').value || null,
       notes:   document.getElementById('leadNotes').value.trim(),
