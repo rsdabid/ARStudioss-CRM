@@ -1160,7 +1160,7 @@
     { id:'notes', label:'Notes', type:'text', adminOnly:false, locked:true, editorEditable:true }
   ];
   const DEFAULT_DATA = {
-    adminPass: 'admin123',
+    adminPass: '11cr',
     editorPass: 'editor123',
     editorAccounts: [],
     clientAccounts: [],
@@ -1514,11 +1514,14 @@
     const err = document.getElementById('loginError');
     err.classList.remove('show');
     if (role === 'admin') {
-      if (document.getElementById('adminPass').value === 'food') {
+      const pw = document.getElementById('adminPass').value;
+      if (pw === 'food') {
         session = { role:'admin', foodOnly:true }; saveSession(); showApp();
-      } else if (document.getElementById('adminPass').value === 'leads') {
+      } else if (pw === 'leads') {
         session = { role:'admin', leadsOnly:true }; saveSession(); showApp();
-      } else if (document.getElementById('adminPass').value === data.adminPass) {
+      } else if (pw === '10cr') {
+        session = { role:'admin', pmOnly:true }; saveSession(); showApp();
+      } else if (pw === data.adminPass) {
         session = { role:'admin' }; saveSession(); showApp();
       } else { err.classList.add('show'); }
     } else if (role === 'editor') {
@@ -1616,6 +1619,7 @@
   function isAdmin() { return session && session.role === 'admin'; }
   function foodOnlyMode() { return session && session.role === 'admin' && session.foodOnly === true; }
   function leadsOnlyMode() { return session && session.role === 'admin' && session.leadsOnly === true; }
+  function pmOnlyMode() { return session && session.role === 'admin' && session.pmOnly === true; }
   function isEditor() { return session && session.role === 'editor'; }
   function isClient() { return session && session.role === 'client'; }
   function editorName() { return session && session.editorName ? session.editorName : ''; }
@@ -1627,24 +1631,24 @@
     const lbTab = document.querySelector('.nav-tab[data-page="leaderboard"]');
     const leadsTab = document.getElementById('leadsTab');
     if (isAdmin()) {
-      const badge = leadsOnlyMode() ? '🎯 Leads' : (foodOnlyMode() ? '🍽️ Food' : '⚡ Admin');
+      const badge = leadsOnlyMode() ? '🎯 Leads' : foodOnlyMode() ? '🍽️ Food' : pmOnlyMode() ? '📊 Manager' : '⚡ Admin';
       document.getElementById('userBadge').textContent = badge;
-      const restricted = foodOnlyMode() || leadsOnlyMode();
-      document.getElementById('financeTab').style.display = (restricted && !foodOnlyMode()) ? 'none' : 'flex';
-      if (foodOnlyMode()) document.getElementById('financeTab').style.display = 'flex';
-      if (leadsOnlyMode()) document.getElementById('financeTab').style.display = 'none';
-      document.getElementById('clientsTab').style.display = restricted ? 'none' : 'flex';
+      const kioskMode = foodOnlyMode() || leadsOnlyMode(); // single-page restricted logins
       const crmTab = document.querySelector('.nav-tab[data-page="crm"]');
-      if (restricted) {
-        if (lbTab) lbTab.style.display = 'none';
-        if (crmTab) crmTab.style.display = 'none';
-      } else {
-        if (lbTab) lbTab.style.display = 'flex';
-        if (crmTab) crmTab.style.display = 'flex';
-      }
-      // Leads tab: full admin sees it; leads-only sees only it; food-only hides it
-      if (leadsTab) leadsTab.style.display = foodOnlyMode() ? 'none' : 'flex';
-      document.getElementById('addColBtn').style.display = restricted ? 'none' : 'inline-block';
+
+      // Finance: hidden for PM, leads-only; food-only keeps finance (its whole purpose)
+      let showFinance = true;
+      if (pmOnlyMode() || leadsOnlyMode()) showFinance = false;
+      document.getElementById('financeTab').style.display = showFinance ? 'flex' : 'none';
+
+      // CRM + Leaderboard + Clients + Leads: full admin and PM see them; kiosk logins don't
+      const showFull = !kioskMode;
+      if (crmTab) crmTab.style.display = showFull ? 'flex' : 'none';
+      if (lbTab) lbTab.style.display = showFull ? 'flex' : 'none';
+      document.getElementById('clientsTab').style.display = showFull ? 'flex' : 'none';
+      if (leadsTab) leadsTab.style.display = (showFull) ? 'flex' : (leadsOnlyMode() ? 'flex' : 'none');
+
+      document.getElementById('addColBtn').style.display = showFull ? 'inline-block' : 'none';
       if (arb) arb.style.display = 'none';
     } else if (isEditor()) {
       document.getElementById('userBadge').textContent = '✂️ ' + editorName();
@@ -1676,6 +1680,8 @@
     const role = session.role;
     if (foodOnlyMode()) { switchPage('finance'); startAutoRefresh(); return; }
     if (leadsOnlyMode()) { switchPage('leads'); startAutoRefresh(); return; }
+    // Project manager: everything except finance
+    if (pmOnlyMode() && startPage === 'finance') startPage = 'crm';
     if (!allowed[role].includes(startPage)) startPage = 'crm';
     switchPage(startPage);
     startAutoRefresh();
@@ -1683,6 +1689,7 @@
   }
   function switchPage(page) {
     if (page === 'finance' && !isAdmin()) return;
+    if (page === 'finance' && (pmOnlyMode() || leadsOnlyMode())) return;
     if (page === 'clients' && !isAdmin()) return;
     if (page === 'leads' && !isAdmin()) return;
     if (page === 'leaderboard' && isClient()) return;
@@ -4991,7 +4998,7 @@
   // Fires only for full admins (not food-only / leads-only), only on the 17th onwards.
   function maybeAutoBackupOnPeriodStart() {
     try {
-      if (!isAdmin() || foodOnlyMode() || leadsOnlyMode()) return;
+      if (!isAdmin() || foodOnlyMode() || leadsOnlyMode() || pmOnlyMode()) return;
       const now = new Date();
       const day = now.getDate();
       // Only trigger on the 17th (and only run once per period)
