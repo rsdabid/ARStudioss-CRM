@@ -1636,9 +1636,9 @@
       const kioskMode = foodOnlyMode() || leadsOnlyMode(); // single-page restricted logins
       const crmTab = document.querySelector('.nav-tab[data-page="crm"]');
 
-      // Finance: hidden for PM, leads-only; food-only keeps finance (its whole purpose)
+      // Finance: hidden for leads-only; PM and food-only get it (PM sees only food)
       let showFinance = true;
-      if (pmOnlyMode() || leadsOnlyMode()) showFinance = false;
+      if (leadsOnlyMode()) showFinance = false;
       document.getElementById('financeTab').style.display = showFinance ? 'flex' : 'none';
 
       // CRM + Leaderboard + Clients + Leads: full admin and PM see them; kiosk logins don't
@@ -1680,8 +1680,6 @@
     const role = session.role;
     if (foodOnlyMode()) { switchPage('finance'); startAutoRefresh(); return; }
     if (leadsOnlyMode()) { switchPage('leads'); startAutoRefresh(); return; }
-    // Project manager: everything except finance
-    if (pmOnlyMode() && startPage === 'finance') startPage = 'crm';
     if (!allowed[role].includes(startPage)) startPage = 'crm';
     switchPage(startPage);
     startAutoRefresh();
@@ -1689,7 +1687,7 @@
   }
   function switchPage(page) {
     if (page === 'finance' && !isAdmin()) return;
-    if (page === 'finance' && (pmOnlyMode() || leadsOnlyMode())) return;
+    if (page === 'finance' && leadsOnlyMode()) return;
     if (page === 'clients' && !isAdmin()) return;
     if (page === 'leads' && !isAdmin()) return;
     if (page === 'leaderboard' && isClient()) return;
@@ -3300,9 +3298,10 @@
     if (!isAdmin()) return;
     if (e) e.stopPropagation();
     const r = data.rows.find(x => x.id === rowId); if (!r) return;
-    // Preload any saved breakdown
+    // Preload any saved breakdown, or a prior custom value
     const saved = r.pointCalc || {};
-    pcState = { rowId, type: saved.type||null, dur: saved.dur||null, cx: saved.cx||null, rev: saved.rev||null };
+    const priorCustom = (saved.custom && r.points != null) ? r.points : (r.pointCalc && r.pointCalc.custom ? r.pointCalc.raw : null);
+    pcState = { rowId, type: saved.type||null, dur: saved.dur||null, cx: saved.cx||null, rev: saved.rev||null, custom: priorCustom };
     document.getElementById('pointCalcModal').classList.add('show');
     renderPointCalc();
   }
@@ -3341,7 +3340,18 @@
         <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin:16px 0 8px">4 · Revisions expected</div>
         ${grid('rev', PC_REVISION)}
       </div>
-      <div style="margin-top:16px;padding:16px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:12px;text-align:center">
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(5,13,10,0.5);border:1px dashed var(--border);border-radius:12px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px">Or set points directly</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" min="0" step="1" id="pcCustom" placeholder="e.g. 25" value="${pcState.custom!=null?pcState.custom:''}"
+            oninput="pcCustomInput(this.value)"
+            style="flex:1;padding:10px 12px;font-size:15px;font-weight:700;background:rgba(5,13,10,0.6);border:1px solid var(--border);border-radius:8px;color:var(--green-bright);font-family:var(--font-display)">
+          <span style="font-size:13px;color:var(--text-muted);font-weight:600">pts</span>
+          <button class="btn btn-primary" style="padding:10px 18px" onclick="pcApplyCustom()">Apply</button>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px">Skips the categories above and uses exactly this number.</div>
+      </div>
+      <div style="margin-top:14px;padding:16px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:12px;text-align:center">
         ${result
           ? `<div style="font-size:32px;font-weight:800;color:var(--green-bright);font-family:var(--font-display)">${result.points} <span style="font-size:16px;color:var(--text-muted);font-weight:600">pts</span></div>
              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Calculated from your selections</div>`
@@ -3355,6 +3365,25 @@
         <a href="#" onclick="pcResetToAuto();return false" style="font-size:11px;color:var(--text-muted)">or reset to auto (from revenue)</a>
       </div>
     `;
+  }
+
+  function pcCustomInput(val) {
+    pcState.custom = val === '' ? null : val;
+  }
+
+  async function pcApplyCustom() {
+    const r = data.rows.find(x => x.id === pcState.rowId); if (!r) return;
+    const inp = document.getElementById('pcCustom');
+    const raw = inp ? inp.value.trim() : '';
+    if (raw === '' || isNaN(Number(raw))) { showToast('Enter a number first'); return; }
+    const pts = Math.round(Number(raw));
+    pushUndo();
+    r.points = pts;
+    // Custom points are manual but not from the category breakdown
+    r.pointCalc = { custom: true, raw: pts };
+    closeModal('pointCalcModal');
+    renderActiveCRM(); await saveData();
+    showToast(`${pts} points applied`);
   }
 
   async function pcApply() {
@@ -4492,8 +4521,8 @@
     const pk = activePeriodKey();
     document.getElementById('financePeriodLabel').textContent = 'Period: ' + periodLabel();
 
-    // Food-only admin: show ONLY the food expenses sheet
-    if (foodOnlyMode()) { renderFoodOnly(pk); return; }
+    // Food-only admin AND project manager: show ONLY the food expenses sheet
+    if (foodOnlyMode() || pmOnlyMode()) { renderFoodOnly(pk); return; }
 
     const rate = monthRate(pk);
     const usdRevenue = periodRevenue(pk); // net of Fiverr's 20%
