@@ -1336,8 +1336,17 @@
           }
           data.colsV2 = true;
         }
+        // SAFETY: never delete rows here. Repair missing/duplicate IDs instead of dropping data.
         const seen = new Set();
-        data.rows = data.rows.filter(r => { if (!r.id || seen.has(r.id)) return false; seen.add(r.id); return true; });
+        let repaired = 0;
+        (data.rows || []).forEach(r => {
+          if (!r.id || seen.has(r.id)) {
+            r.id = 'r_' + Date.now() + '_' + Math.floor(Math.random()*1000000) + '_' + repaired;
+            repaired++;
+          }
+          seen.add(r.id);
+        });
+        if (repaired > 0) console.warn(`[integrity] Repaired ${repaired} row ID(s) instead of deleting them`);
       } else { await saveData(); }
       clearError();
     } catch(e) { console.error('Load failed:', e); showError('Load failed: ' + (e.message||'unknown')); }
@@ -1353,10 +1362,106 @@
   document.addEventListener('click', () => { lastUserActivityAt = Date.now(); }, true);
   document.addEventListener('keydown', () => { lastUserActivityAt = Date.now(); }, true);
 
+  // Merge protection: before overwriting the server, pull the latest copy and
+  // re-attach anything on the server that this session never saw. This prevents
+  // two people with the app open from wiping each other's rows.
+  function mergeRemoteAdditions(remote, local) {
+    if (!remote || typeof remote !== 'object') return local;
+    const merged = { ...local };
+    // --- rows ---
+    const localRows = local.rows || [];
+    const remoteRows = remote.rows || [];
+    const localIds = new Set(localRows.map(r => r.id));
+    const knownDeleted = new Set([
+      ...(local.recycleBin || []).map(x => x.id),
+    ]);
+    const rescued = remoteRows.filter(r =>
+      r && r.id && !localIds.has(r.id) && !knownDeleted.has(r.id)
+    );
+    if (rescued.length) {
+      merged.rows = [...localRows, ...rescued];
+      console.warn(`[merge] Rescued ${rescued.length} row(s) that existed on the server but not locally`);
+    }
+    // --- expenses (per period) ---
+    const localExp = local.expenses || {};
+    const remoteExp = remote.expenses || {};
+    const mergedExp = { ...localExp };
+    const binnedExp = new Set((local.expenseBin || []).map(x => x.id));
+    Object.keys(remoteExp).forEach(pk => {
+      const lList = localExp[pk] || [];
+      const lIds = new Set(lList.map(e => e.id));
+      const add = (remoteExp[pk] || []).filter(e => e && e.id && !lIds.has(e.id) && !binnedExp.has(e.id));
+      if (add.length) mergedExp[pk] = [...lList, ...add];
+    });
+    merged.expenses = mergedExp;
+    // --- leads ---
+    const lLeads = local.leads || [];
+    const rLeads = remote.leads || [];
+    const lLeadIds = new Set(lLeads.map(x => x.id));
+    const addLeads = rLeads.filter(x => x && x.id && !lLeadIds.has(x.id));
+    if (addLeads.length) merged.leads = [...lLeads, ...addLeads];
+    return merged;
+  }
+
+  // Rolling local safety snapshots — keeps the last few good states in this browser
+  function snapshotLocal() {
+    try {
+      const rows = (data.rows || []).length;
+      if (!rows) return; // never snapshot an empty state
+      const key = 'arstudioss_snapshots';
+      let snaps = [];
+      try { snaps = JSON.parse(localStorage.getItem(key) || '[]'); } catch(_) {}
+      const last = snaps[snaps.length - 1];
+      // Only snapshot if the row count changed meaningfully or 10+ min passed
+      const now = Date.now();
+      if (last && last.rows === rows && (now - last.at) < 600000) return;
+      snaps.push({ at: now, rows, data: JSON.stringify(data) });
+      // Keep only the newest 3 (localStorage is size-limited)
+      while (snaps.length > 3) snaps.shift();
+      localStorage.setItem(key, JSON.stringify(snaps));
+    } catch(e) { /* quota exceeded — ignore, this is best-effort */ }
+  }
+
+  // Recover from a local snapshot (call from console: restoreLocalSnapshot())
+  function restoreLocalSnapshot(index) {
+    try {
+      const snaps = JSON.parse(localStorage.getItem('arstudioss_snapshots') || '[]');
+      if (!snaps.length) { console.log('No local snapshots available'); return; }
+      snaps.forEach((s,i) => console.log(`[${i}] ${new Date(s.at).toLocaleString()} — ${s.rows} rows`));
+      if (index == null) { console.log('Call restoreLocalSnapshot(index) to restore one.'); return; }
+      const snap = snaps[index];
+      if (!snap) { console.log('No snapshot at that index'); return; }
+      if (!confirm(`Restore snapshot from ${new Date(snap.at).toLocaleString()} with ${snap.rows} rows? Current data will be replaced.`)) return;
+      data = JSON.parse(snap.data);
+      saveData().then(() => { renderAll(); showToast('Local snapshot restored'); });
+    } catch(e) { console.error('Snapshot restore failed:', e); }
+  }
+
   async function saveData() {
     if (isSaving) { pendingSave = true; return; }
     isSaving = true;
     try {
+      // Pull the current server copy first and rescue anything we don't have locally
+      try {
+        const { data: srvRow } = await db.from('app_state').select('data').eq('id','main').single();
+        if (srvRow && srvRow.data) {
+          const srvHash = JSON.stringify(srvRow.data);
+          // Only merge if the server holds something different from what we last saw
+          if (srvHash !== serverDataHash) {
+            data = mergeRemoteAdditions(srvRow.data, data);
+          }
+          // Catastrophe guard: refuse to wipe a large chunk of rows in one save
+          const srvCount = (srvRow.data.rows || []).length;
+          const newCount = (data.rows || []).length;
+          if (srvCount > 5 && newCount < srvCount * 0.6) {
+            console.error(`[guard] Blocked save: would drop ${srvCount - newCount} of ${srvCount} rows`);
+            showError(`Save blocked — this would delete ${srvCount - newCount} projects. Refresh the page to reload the correct data.`);
+            isSaving = false;
+            return;
+          }
+        }
+      } catch(mergeErr) { console.warn('Pre-save merge check failed (continuing):', mergeErr); }
+
       const nowIso = new Date().toISOString();
       const snapshot = JSON.stringify(data); // snapshot at save time
       const { error } = await db.from('app_state').update({ data: data, updated_at: nowIso }).eq('id','main');
@@ -1366,6 +1471,7 @@
         lastSaveAt = Date.now();
         serverUpdatedAt = nowIso;
         serverDataHash = snapshot; // we know server has this exact data
+        snapshotLocal();
       }
     } catch(e) { console.error('Save failed:', e); showError('Save failed: ' + (e.message||'unknown')); }
     finally { isSaving = false; if (pendingSave) { pendingSave = false; saveData(); } }
