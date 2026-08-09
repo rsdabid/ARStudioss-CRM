@@ -1355,8 +1355,8 @@
   let lastUserActivityAt = 0; // last time the user clicked/typed
   let serverUpdatedAt = null; // updated_at from server when we last fetched
   let serverDataHash = null; // hash of data we last saved/loaded, used to detect genuine remote changes
-  const SAVE_GRACE_MS = 10000; // ignore server updates within 10s of our own save
-  const ACTIVITY_GRACE_MS = 5000; // ignore server updates within 5s of user interaction
+  const SAVE_GRACE_MS = 4000; // ignore server updates within 4s of our own save
+  const ACTIVITY_GRACE_MS = 2000; // ignore server updates within 2s of user interaction
 
   // Track user activity to avoid mid-edit overwrites
   document.addEventListener('click', () => { lastUserActivityAt = Date.now(); }, true);
@@ -1491,6 +1491,19 @@
         const { data: srvRow } = await db.from('app_state').select('data').eq('id','main').single();
         if (srvRow && srvRow.data) {
           const srvHash = JSON.stringify(srvRow.data);
+          // STALE-TAB PROTECTION: if the server was modified by another user
+          // since we last synced, refuse the save. Blindly overwriting would
+          // wipe their changes; blindly merging can corrupt data because we
+          // don't track which of *our* fields are edits vs stale copies.
+          // Force a full reload so the user sees the current state and can redo
+          // their change on top of fresh data.
+          if (serverDataHash && srvHash !== serverDataHash) {
+            console.error('[safety] Server changed since last sync — blocking save to prevent stale overwrite');
+            showError('Someone else updated the CRM. Reloading to sync — please redo your last change.');
+            isSaving = false;
+            setTimeout(() => { try { window.location.reload(); } catch(e){} }, 1800);
+            return;
+          }
           // Only merge if the server holds something different from what we last saw
           if (srvHash !== serverDataHash) {
             data = mergeRemoteAdditions(srvRow.data, data);
@@ -1581,7 +1594,7 @@
         serverDataHash = newHash;
         renderAll();
       } catch(e) { console.error('Auto-refresh failed:', e); }
-    }, 15000);
+    }, 4000);
   }
   function stopAutoRefresh() { if (autoRefreshTimer) clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
 
