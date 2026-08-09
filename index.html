@@ -1400,6 +1400,51 @@
     const lLeadIds = new Set(lLeads.map(x => x.id));
     const addLeads = rLeads.filter(x => x && x.id && !lLeadIds.has(x.id));
     if (addLeads.length) merged.leads = [...lLeads, ...addLeads];
+    // --- columns (rescue by id; prevents concurrent-edit column wipes) ---
+    const lCols = local.columns || [];
+    const rCols = remote.columns || [];
+    const lColIds = new Set(lCols.map(c => c && c.id).filter(Boolean));
+    const addCols = rCols.filter(c => c && c.id && !lColIds.has(c.id));
+    if (addCols.length) {
+      merged.columns = [...lCols, ...addCols];
+      console.warn(`[merge] Rescued ${addCols.length} column(s) from server: ${addCols.map(c=>c.label||c.id).join(', ')}`);
+    }
+    // --- teams (rescue by id) ---
+    const lTeams = local.teams || [];
+    const rTeams = remote.teams || [];
+    const lTeamIds = new Set(lTeams.map(t => t && t.id).filter(Boolean));
+    const addTeams = rTeams.filter(t => t && t.id && !lTeamIds.has(t.id));
+    if (addTeams.length) {
+      merged.teams = [...lTeams, ...addTeams];
+      console.warn(`[merge] Rescued ${addTeams.length} team(s) from server`);
+    }
+    // --- individuals (rescue by name string) ---
+    const lInd = Array.isArray(local.individuals) ? local.individuals : [];
+    const rInd = Array.isArray(remote.individuals) ? remote.individuals : [];
+    const lIndSet = new Set(lInd);
+    const addInd = rInd.filter(n => n && !lIndSet.has(n));
+    if (addInd.length) {
+      merged.individuals = [...lInd, ...addInd];
+      console.warn(`[merge] Rescued ${addInd.length} individual(s) from server: ${addInd.join(', ')}`);
+    }
+    // --- editorAccounts (rescue by name) ---
+    const lEA = local.editorAccounts || [];
+    const rEA = remote.editorAccounts || [];
+    const lEANames = new Set(lEA.map(a => a && a.name).filter(Boolean));
+    const addEA = rEA.filter(a => a && a.name && !lEANames.has(a.name));
+    if (addEA.length) {
+      merged.editorAccounts = [...lEA, ...addEA];
+      console.warn(`[merge] Rescued ${addEA.length} editor account(s) from server: ${addEA.map(a=>a.name).join(', ')}`);
+    }
+    // --- clientAccounts (rescue by name) ---
+    const lCA = local.clientAccounts || [];
+    const rCA = remote.clientAccounts || [];
+    const lCANames = new Set(lCA.map(a => a && a.name).filter(Boolean));
+    const addCA = rCA.filter(a => a && a.name && !lCANames.has(a.name));
+    if (addCA.length) {
+      merged.clientAccounts = [...lCA, ...addCA];
+      console.warn(`[merge] Rescued ${addCA.length} client account(s) from server: ${addCA.map(a=>a.name).join(', ')}`);
+    }
     return merged;
   }
 
