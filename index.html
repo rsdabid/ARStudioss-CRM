@@ -41,6 +41,7 @@
       radial-gradient(ellipse at bottom left, rgba(94,231,176,0.05), transparent 50%), var(--bg);
     color: var(--text); min-height: 100vh; padding: 20px; background-attachment: fixed;
   }
+  html { overflow-x: hidden; }
   .container { max-width: 1400px; margin: 0 auto; }
   .header {
     display: flex; justify-content: space-between; align-items: center;
@@ -690,14 +691,22 @@
   .spin-mark { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.85; } }
   @media (max-width: 640px) {
-    body { padding: 12px; }
-    .header { flex-wrap: wrap; gap: 10px; }
+    body { padding: 8px; }
+    .header { flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-radius: 20px; justify-content: center; }
+    .header .logo { width: 100%; text-align: center; display: flex; justify-content: center; }
+    .header-right { width: 100%; justify-content: center; flex-wrap: wrap; gap: 6px; }
+    .header-right .btn { padding: 7px 12px; font-size: 12px; }
+    .header-right .user-badge { padding: 6px 10px; font-size: 11px; }
     .nav-tab { padding: 9px 14px; font-size: 12.5px; white-space: nowrap; flex-shrink: 0; }
-    .nav-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .nav-tabs { width: 100% !important; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
     .nav-tabs::-webkit-scrollbar { display: none; }
     .modal { padding: 20px 16px; border-radius: 16px; }
     .section-header { flex-wrap: wrap; gap: 10px; }
     .toolbar select, .toolbar .btn-tb { min-height: 38px; }
+    .page-title { font-size: 28px; }
+    .period-label { font-size: 12px; }
+    .container { max-width: 100vw; overflow-x: hidden; }
+    .fin-card h3 { font-size: 12px; }
   }
 
   /* FINANCE */
@@ -848,6 +857,78 @@
   /* overdue/due-today keep their stronger full highlight, overriding the tint */
   .lead-card.overdue { border-left-color: #ff5252 !important; }
   .lead-card.due-today { border-left-color: #ffce4a !important; }
+
+  /* Finance chart — Stripe-style area graph */
+  .fin-chart-wrap { background: rgba(13,31,24,0.5); border: 1px solid var(--border); border-radius: 16px; padding: 20px 20px 16px; margin-bottom: 16px; }
+  .fin-chart-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .fin-chart-totals { display: flex; gap: 28px; flex-wrap: wrap; }
+  .fin-chart-metric { display: flex; flex-direction: column; gap: 2px; }
+  .fin-chart-metric .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+  .fin-chart-metric .metric-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .fin-chart-metric .metric-val { font-size: 22px; font-weight: 800; font-family: var(--font-display); letter-spacing: -0.02em; }
+  .fin-chart-range select { padding: 6px 28px 6px 12px; font-size: 11px; font-weight: 700; font-family: var(--font-ui); border: 1px solid var(--border); border-radius: 8px; background: rgba(5,13,10,0.5); color: var(--green-bright); cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237CF2C0'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  .fin-chart-breakdown { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; margin-top: 2px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .breakdown-item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: rgba(5,13,10,0.4); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; }
+  .bd-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .bd-label { color: var(--text-muted); font-weight: 500; }
+  .bd-pct { font-weight: 800; color: var(--text); font-family: var(--font-display); }
+  .bd-val { color: var(--text-muted); font-size: 10px; opacity: 0.7; }
+  .fin-chart-svg { width: 100%; height: 180px; display: block; }
+  .fin-chart-line { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: finDrawLine 1.4s cubic-bezier(0.4,0,0.2,1) forwards; }
+  .fin-chart-line.profit-line { animation-delay: 0.15s; }
+  .fin-chart-area { opacity: 0; animation: finFadeArea 0.9s cubic-bezier(0.4,0,0.2,1) 0.5s forwards; }
+  .fin-chart-area.profit-area { animation-delay: 0.65s; }
+  .fin-chart-dot { opacity: 0; animation: finDotPop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  @keyframes finDrawLine { to { stroke-dashoffset: 0; } }
+  @keyframes finFadeArea { to { opacity: 1; } }
+  @keyframes finDotPop { to { opacity: 1; } }
+  .fin-chart-labels { display: flex; justify-content: space-between; padding: 6px 0 0; }
+  .fin-chart-labels span { font-size: 10px; color: var(--text-muted); opacity: 0.6; }
+  .fin-chart-tooltip { position: absolute; pointer-events: none; background: rgba(5,13,10,0.92); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text); z-index: 50; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.4); opacity: 0; transform: translateY(4px); transition: opacity 0.18s ease, transform 0.18s ease; }
+  .fin-chart-tooltip.visible { opacity: 1; transform: translateY(0); }
+  .fin-chart-tooltip .tt-period { font-weight: 700; font-family: var(--font-display); margin-bottom: 4px; font-size: 12px; }
+  .fin-chart-tooltip .tt-rev { color: #7CF2C0; }
+  .fin-chart-tooltip .tt-profit { color: #4a9eff; }
+  @media (max-width: 640px) { .fin-chart-totals { gap: 16px; } .fin-chart-metric .metric-val { font-size: 18px; } }
+
+  /* Priority Clients — clean spreadsheet layout */
+  .pc-section { margin-bottom: 36px; }
+  .pc-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .pc-section-title { font-size: 22px; font-weight: 800; color: var(--text); font-family: var(--font-display); letter-spacing: -0.02em; }
+  .pc-section-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .pc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 1100px) { .pc-grid { grid-template-columns: 1fr; } }
+  .pc-col { background: rgba(5,13,10,0.25); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-height: 100px; }
+  .pc-col.drag-over { border-color: var(--green); background: rgba(94,231,176,0.04); }
+  .pc-col-head { padding: 10px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; font-family: var(--font-display); color: var(--text-muted); display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); }
+  .pc-col.tier-a .pc-col-head { border-top: 2px solid rgba(255,82,82,0.5); }
+  .pc-col.tier-b .pc-col-head { border-top: 2px solid rgba(255,206,74,0.45); }
+  .pc-col.tier-c .pc-col-head { border-top: 2px solid rgba(74,158,255,0.4); }
+  .pc-col-count { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-left: auto; opacity: 0.6; }
+  .pc-table { width: 100%; border-collapse: collapse; }
+  .pc-table th { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 5px 10px; text-align: left; border-bottom: 1px solid rgba(28,56,43,0.3); opacity: 0.7; }
+  .pc-table td { font-size: 12.5px; color: var(--text); padding: 9px 10px; border-bottom: 1px solid rgba(28,56,43,0.25); vertical-align: top; }
+  .pc-table tbody tr { transition: background 0.12s; cursor: grab; }
+  .pc-table tbody tr:last-child td { border-bottom: none; }
+  .pc-table tbody tr:hover { background: rgba(94,231,176,0.03); }
+  .pc-table tbody tr:active { cursor: grabbing; }
+  .pc-table tbody tr.dragging { opacity: 0.35; }
+  .pc-table .pc-name { font-weight: 700; font-family: var(--font-display); white-space: nowrap; font-size: 13px; }
+  .pc-table .pc-socials { display: flex; gap: 5px; flex-wrap: wrap; }
+  .pc-table .pc-socials a { font-size: 11px; text-decoration: none; padding: 2px 7px; background: rgba(94,231,176,0.06); border: 1px solid rgba(94,231,176,0.15); border-radius: 5px; color: #7ee2b8; white-space: nowrap; transition: all 0.12s; }
+  .pc-table .pc-socials a:hover { background: rgba(94,231,176,0.15); border-color: rgba(94,231,176,0.4); }
+  .pc-table .pc-notes { font-size: 12px; color: var(--text-muted); min-width: 80px; max-width: 300px; white-space: normal; line-height: 1.4; word-break: break-word; }
+  .pc-table .pc-edit-btn { background: none; border: none; color: var(--text-muted); font-size: 13px; padding: 2px 6px; cursor: pointer; transition: all 0.12s; opacity: 0.5; }
+  .pc-table tbody tr:hover .pc-edit-btn { opacity: 1; }
+  .pc-table .pc-edit-btn:hover { color: var(--green); }
+  .pc-empty { text-align: center; padding: 24px 12px; font-size: 11px; color: var(--text-muted); opacity: 0.4; font-style: italic; }
+  .pc-divider { border: none; border-top: 1px dashed rgba(28,56,43,0.4); margin: 36px 0 28px; }
+  .pc-social-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .pc-social-row select, .pc-social-row input { padding: 8px 10px; background: rgba(5,13,10,0.5); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-ui); font-size: 12px; }
+  .pc-social-row select { width: 120px; flex-shrink: 0; }
+  .pc-social-row input { flex: 1; min-width: 0; }
+  .pc-social-row .pc-rm-link { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
+  .pc-social-row .pc-rm-link:hover { color: #ff5252; }
 
   /* Paid celebration */
   #paidCelebration { position: fixed; inset: 0; z-index: 900; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.35s; overflow: hidden; }
@@ -1042,14 +1123,34 @@
   <div class="page" id="page-finance">
     <div class="section-header"><div><div class="section-title">Finance</div><div class="section-sub" id="financePeriodLabel"></div></div></div>
     <div class="toolbar">
-      <span class="toolbar-label">Period:</span>
-      <select id="finYear" onchange="changeYearMonth('finance')"></select>
-      <select id="finMonthSel" onchange="changeYearMonth('finance')"></select>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Period</span>
+        <select id="finYear" class="tb-select" onchange="changeYearMonth('finance')"></select>
+      </div>
+      <div class="toolbar-group">
+        <select id="finMonthSel" class="tb-select" onchange="changeYearMonth('finance')" style="padding-left:14px"></select>
+      </div>
     </div>
+    <div id="finChartContainer"></div>
     <div id="financeContent"></div>
   </div>
 
   <div class="page" id="page-leads">
+    <!-- Priority Clients section -->
+    <div class="pc-section">
+      <div class="pc-section-header">
+        <div>
+          <div class="pc-section-title">Priority Clients</div>
+          <div class="pc-section-sub">Drag rows between tiers · Click ✎ to edit</div>
+        </div>
+        <button class="btn btn-primary" onclick="openPcEditor()" style="margin-left:auto">＋ Add Client</button>
+      </div>
+      <div id="pcContent"></div>
+    </div>
+
+    <hr class="pc-divider">
+
+    <!-- Leads Pipeline (existing) -->
     <div class="section-header">
       <div>
         <div class="section-title">Leads Pipeline</div>
@@ -1118,8 +1219,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = 'https://hthpftvfkxkyznfndera.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_gZwVN4V2fb0-wgX6CM7AuQ_Q8ykMoMu';
+  const SUPABASE_URL = 'https://pgmfeoeixxrscfrewnfj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_AYgYdwE8NIOUpJ2s_i4ZZg_gN1Gp7Tq';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <script>
@@ -1173,7 +1274,7 @@
     individuals: [],
     expenses: {},
     notes: {},
-    split: { Rashid:77, Fahim:18, Siam:5 },
+    split: { Rashid:82, Fahim:18 },
     pointTiers: [
       { min:1, max:5, points:2 },
       { min:6, max:10, points:4 },
@@ -1188,6 +1289,18 @@
       { min:221, max:300, points:75 }
     ],
     rates: { summary: 122, split: 122, expense: 122, calc: 122 },
+    defaultSalaries: [
+      { name:'Abid', taka:35000 },
+      { name:'Fahim', taka:30000 },
+      { name:'Siyam', taka:50000 },
+      { name:'Raihan', taka:20000 },
+      { name:'Nobin', taka:20000 },
+      { name:'Kiron', taka:15000 },
+      { name:'Fardin', taka:15000 },
+      { name:'Mehraj', taka:10000 },
+      { name:'Araf', taka:10000 },
+      { name:'Khala', taka:8000 }
+    ],
     monthRates: {}
   };
   let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -1231,309 +1344,442 @@
   }
   function clearError() { const b = document.getElementById('errorBar'); if (b) b.remove(); }
 
+  // ========== NEW DATA LAYER — per-entity DB + Supabase Realtime ==========
+
+  // Field mappings: DB snake_case ↔ JS camelCase
+  const PROJECT_FIELDS = {
+    id:'id', period:'period', raw_file:'rawFile', editor:'editor', client:'client',
+    revenue:'revenue', revenue_gross:'revenueGross', revenue_source:'revenueSource',
+    points:'points', point_calc:'pointCalc', status:'status', deadline:'deadline',
+    frameio:'frameio', final_video:'finalVideo', notes:'notes', rolled_from:'rolledFrom',
+    created_at:'createdAt', created_by:'createdBy'
+  };
+  const EXPENSE_FIELDS = {
+    id:'id', period:'period', name:'name', usd:'usd', taka:'taka', bonus:'bonus', notes:'notes',
+    type:'type', salary_kind:'salaryKind', created_at:'createdAt'
+  };
+  const LEAD_FIELDS = {
+    id:'id', name:'name', contact:'contact', source:'source', stage:'stage',
+    next_follow_up:'nextFollowUp', notes:'notes', follow_up_count:'followUpCount',
+    created_at:'createdAt', last_touch:'lastTouch'
+  };
+  const COLUMN_FIELDS = {
+    id:'id', label:'label', type:'type', admin_only:'adminOnly',
+    locked:'locked', editor_editable:'editorEditable', sort_order:'sortOrder'
+  };
+
+  function _dbToJs(row, fieldMap) {
+    const out = {};
+    for (const [dbKey, jsKey] of Object.entries(fieldMap)) {
+      if (row[dbKey] !== undefined) out[jsKey] = row[dbKey];
+    }
+    return out;
+  }
+  function _jsToDb(obj, fieldMap) {
+    const inv = {};
+    for (const [dbKey, jsKey] of Object.entries(fieldMap)) inv[jsKey] = dbKey;
+    const out = {};
+    for (const [key, val] of Object.entries(obj)) {
+      if (inv[key] !== undefined) out[inv[key]] = val;
+    }
+    return out;
+  }
+
+  // Diff helpers for save
+  function _diffByKey(current, previous, key) {
+    const curMap = new Map(current.map(item => [item[key], item]));
+    const prevMap = new Map(previous.map(item => [item[key], item]));
+    const upsert = [];
+    const remove = [];
+    for (const [k, item] of curMap) {
+      if (!prevMap.has(k) || JSON.stringify(item) !== JSON.stringify(prevMap.get(k))) {
+        upsert.push(item);
+      }
+    }
+    for (const [k] of prevMap) {
+      if (!curMap.has(k)) remove.push(k);
+    }
+    return { upsert, remove };
+  }
+  function _flattenExpenses(expByPeriod) {
+    const flat = [];
+    for (const [period, list] of Object.entries(expByPeriod)) {
+      (list || []).forEach(e => flat.push({ ...e, period }));
+    }
+    return flat;
+  }
+  function _projectToDb(r) {
+    const dbRow = _jsToDb(r, PROJECT_FIELDS);
+    const custom = {};
+    const knownKeys = new Set(Object.values(PROJECT_FIELDS));
+    for (const [key, val] of Object.entries(r)) {
+      if (!knownKeys.has(key) && val !== undefined) custom[key] = val;
+    }
+    if (Object.keys(custom).length) dbRow.custom_fields = custom;
+    return dbRow;
+  }
+
+  let _lastSaved = null;
+  function _snap() { return JSON.parse(JSON.stringify(data)); }
+
+  // ===== LOAD — query all 12+ tables in parallel =====
+  let _needSplitSave = false;
   async function loadData() {
     try {
       if (!window.supabase) { showError('Supabase library failed to load — check internet / ad-blocker, then refresh'); throw new Error('no supabase lib'); }
-      const { data: row, error } = await db.from('app_state').select('data, updated_at').eq('id','main').single();
-      if (error) { console.error('Load error:', JSON.stringify(error)); showError('Load error: ' + (error.message||error.code||'unknown')); return; }
-      if (row && row.data && Object.keys(row.data).length > 0) {
-        serverUpdatedAt = row.updated_at;
-        serverDataHash = JSON.stringify(row.data);
-        data = { ...DEFAULT_DATA, ...row.data };
-        if (!data.teams || !data.teams.length) data.teams = DEFAULT_DATA.teams;
-        if (!data.columns || !data.columns.length) data.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
-        if (!data.rows) data.rows = [];
-        if (!data.expenses) data.expenses = {};
-        if (!data.individuals) data.individuals = [];
-        if (!data.notes) data.notes = {};
-        if (!data.split) data.split = { Rashid:77, Fahim:18, Siam:5 };
-        if (!data.pointTiers || !data.pointTiers.length) data.pointTiers = JSON.parse(JSON.stringify(DEFAULT_DATA.pointTiers));
-        // One-time upgrade: if still on the old coarse tiers, replace with the new finer breakdown
-        if (!data.tiersV2 && data.pointTiers.length === 8 && data.pointTiers[0] && data.pointTiers[0].max === 15 && data.pointTiers[0].points === 5) {
-          data.pointTiers = JSON.parse(JSON.stringify(DEFAULT_DATA.pointTiers));
-          data.tiersV2 = true;
+
+      const [
+        rSettings, rPeriod, rCols, rProjects, rTeams, rIndiv,
+        rEditors, rClients, rExpenses, rLeads, rBin, rExpBin, rRoster
+      ] = await Promise.all([
+        db.from('settings').select('*').eq('id', 'main').maybeSingle(),
+        db.from('period_settings').select('*'),
+        db.from('columns').select('*').order('sort_order'),
+        db.from('projects').select('*'),
+        db.from('teams').select('*').order('sort_order'),
+        db.from('individuals').select('*').order('sort_order'),
+        db.from('editor_accounts').select('*'),
+        db.from('client_accounts').select('*'),
+        db.from('expenses').select('*'),
+        db.from('leads').select('*'),
+        db.from('project_bin').select('*'),
+        db.from('expense_bin').select('*'),
+        db.from('roster_history').select('*'),
+      ]);
+
+      const errors = [rSettings,rPeriod,rCols,rProjects,rTeams,rIndiv,rEditors,rClients,rExpenses,rLeads,rBin,rExpBin,rRoster]
+        .map(r => r.error).filter(Boolean);
+      if (errors.length) {
+        console.error('Load errors:', errors);
+        showError('Load error: ' + (errors[0].message || errors[0].code || 'unknown'));
+        return;
+      }
+
+      // Settings
+      const s = rSettings.data || {};
+      data.adminPass = s.admin_pass || DEFAULT_DATA.adminPass;
+      data.editorPass = s.editor_pass || DEFAULT_DATA.editorPass;
+      data.split = s.split || JSON.parse(JSON.stringify(DEFAULT_DATA.split));
+      if (data.split.Siam || data.split.Siyam) {
+        const extra = (data.split.Siam || 0) + (data.split.Siyam || 0);
+        delete data.split.Siam; delete data.split.Siyam;
+        data.split.Rashid = (data.split.Rashid || 0) + extra;
+        _needSplitSave = true;
+      }
+      data.pointTiers = s.point_tiers || JSON.parse(JSON.stringify(DEFAULT_DATA.pointTiers));
+      data.rates = s.rates || JSON.parse(JSON.stringify(DEFAULT_DATA.rates));
+      data.lastRolloverFor = s.last_rollover_for || null;
+      data.priorityClients = s.priority_clients || [];
+      data.defaultSalaries = (s.default_salaries && s.default_salaries.length) ? s.default_salaries : JSON.parse(JSON.stringify(DEFAULT_DATA.defaultSalaries));
+
+      // Period settings → per-period maps
+      data.monthRates = {};
+      data.takaRevenue = {};
+      data.profitOverride = {};
+      data.profitNote = {};
+      data.notes = {};
+      (rPeriod.data || []).forEach(ps => {
+        const pk = ps.period;
+        if (ps.month_rate != null) data.monthRates[pk] = Number(ps.month_rate);
+        if (ps.taka_revenue != null) data.takaRevenue[pk] = Number(ps.taka_revenue);
+        if (ps.profit_override != null) data.profitOverride[pk] = Number(ps.profit_override);
+        if (ps.profit_note != null) data.profitNote[pk] = ps.profit_note;
+        if (ps.notes != null) data.notes[pk] = ps.notes;
+      });
+
+      // Columns
+      data.columns = (rCols.data || []).map(r => {
+        const c = _dbToJs(r, COLUMN_FIELDS);
+        delete c.sortOrder;
+        return c;
+      });
+      if (!data.columns.length) data.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
+
+      // Projects → data.rows
+      data.rows = (rProjects.data || []).map(r => {
+        const row = _dbToJs(r, PROJECT_FIELDS);
+        if (r.custom_fields && typeof r.custom_fields === 'object') Object.assign(row, r.custom_fields);
+        return row;
+      });
+
+      // Teams
+      data.teams = (rTeams.data || []).map(r => ({
+        id: r.id, name: r.name, leader: r.leader, password: r.password,
+        members: r.members || []
+      }));
+      if (!data.teams.length) data.teams = JSON.parse(JSON.stringify(DEFAULT_DATA.teams));
+
+      // Individuals
+      data.individuals = (rIndiv.data || []).map(r => r.name);
+
+      // Editor accounts
+      data.editorAccounts = (rEditors.data || []).map(r => ({ name: r.name, password: r.password }));
+
+      // Client accounts
+      data.clientAccounts = (rClients.data || []).map(r => ({
+        name: r.name, password: r.password, columns: r.columns || null
+      }));
+
+      // Expenses → grouped by period
+      data.expenses = {};
+      (rExpenses.data || []).forEach(r => {
+        const exp = _dbToJs(r, EXPENSE_FIELDS);
+        const period = exp.period;
+        delete exp.period;
+        if (!data.expenses[period]) data.expenses[period] = [];
+        data.expenses[period].push(exp);
+      });
+
+      // Leads
+      data.leads = (rLeads.data || []).map(r => _dbToJs(r, LEAD_FIELDS));
+
+      // Recycle bin
+      data.recycleBin = (rBin.data || []).map(r => ({
+        ...(r.project_data || {}),
+        id: r.id,
+        deletedAt: r.deleted_at,
+        deletedBy: r.deleted_by
+      }));
+
+      // Expense bin
+      data.expenseBin = (rExpBin.data || []).map(r => ({
+        ...(r.expense_data || {}),
+        id: r.id,
+        period: r.period,
+        deletedAt: r.deleted_at
+      }));
+
+      // Roster history
+      data.rosterHistory = {};
+      (rRoster.data || []).forEach(r => {
+        data.rosterHistory[r.period] = {
+          teams: r.teams || [],
+          individuals: r.individuals || [],
+          snapshotAt: r.snapshot_at
+        };
+      });
+
+      // Row ID integrity
+      const seen = new Set();
+      let repaired = 0;
+      (data.rows || []).forEach(r => {
+        if (!r.id || seen.has(r.id)) {
+          r.id = 'r_' + Date.now() + '_' + Math.floor(Math.random()*1000000) + '_' + repaired;
+          repaired++;
         }
-        if (data.tiersV2 === undefined) data.tiersV2 = true;
-        if (!data.rates) data.rates = { summary:122, split:122, expense:122, calc:122 };
-        if (!data.monthRates) data.monthRates = {};
-        if (!data.editorPass) data.editorPass = 'editor123';
-        // One-time team restructure: rename teams, update members, keep Nobin as individual
-        if (!data.teamsV3) {
-          // Rebuild both teams with new members
-          const tSiam = data.teams.find(t => t.id === 't_siam');
-          const tRiad = data.teams.find(t => t.id === 't_riad');
-          if (tSiam) { tSiam.name = 'Team Siyam'; tSiam.leader = 'Siyam'; tSiam.members = ['Siyam','Kiron','Rayhan']; }
-          if (tRiad) { tRiad.name = 'Team Fahim'; tRiad.leader = 'Fahim'; tRiad.members = ['Fahim','Riyad','Mehraj']; }
-          // Move Nobin to individuals (old team member)
-          if (!data.individuals) data.individuals = [];
-          if (!data.individuals.includes('Nobin')) data.individuals.push('Nobin');
-          // Remove old members not in new teams from individuals list (Raian, Siam, Riad etc were old)
-          const newAllMembers = ['Siyam','Kiron','Rayhan','Fahim','Riyad','Mehraj','Nobin'];
-          // Remove old team names from individuals if accidentally there
-          data.individuals = [...new Set(data.individuals)];
-          data.teamsV3 = true;
-        }
-        // Auto-create individual editor accounts for all existing editors
-        if (!data.editorAccounts) data.editorAccounts = [];
-        if (!data.accountsV1) {
-          const existing = new Set((data.editorAccounts || []).map(a => a.name));
-          // Gather all editors from teams + individuals
-          const allEds = [];
-          (data.teams || []).forEach(t => (t.members || []).forEach(m => { if (!existing.has(m)) allEds.push(m); }));
-          (data.individuals || []).forEach(m => { if (!existing.has(m)) allEds.push(m); });
-          allEds.forEach(name => {
-            data.editorAccounts.push({ name: name, password: name.toLowerCase().replace(/\s+/g,'') + '123' });
-          });
-          data.accountsV1 = true;
-        }
-        if (!data.clientAccounts) data.clientAccounts = [];
-        // Inject Frame.io column into existing client column lists (one-time)
-        if (!data.clientColsV2) {
-          (data.clientAccounts || []).forEach(c => {
-            if (c.columns && c.columns.length && !c.columns.find(col => col.id === 'frameio')) {
-              // insert before finalVideo if it exists, otherwise append
-              const idx = c.columns.findIndex(col => col.id === 'finalVideo');
-              const frameCol = { id:'frameio', label:'Frame.io', type:'links', editable:false, locked:true };
-              if (idx >= 0) c.columns.splice(idx, 0, frameCol);
-              else c.columns.push(frameCol);
-            }
-          });
-          data.clientColsV2 = true;
-        }
-        // Fix old editor names in rows to match new account names
-        if (!data.editorNameFixV1) {
-          const nameMap = {
-            'siam': 'Siyam', 'Siam': 'Siyam',
-            'riad': 'Riyad', 'Riad': 'Riyad',
-            'raian': 'Rayhan', 'Raian': 'Rayhan',
-            'nobin': 'Nobin', 'Nobin': 'Nobin',
-            'kiron': 'Kiron', 'Kiron': 'Kiron',
-            'mehraj': 'Mehraj', 'Mehraj': 'Mehraj',
-            'fahim': 'Fahim', 'Fahim': 'Fahim',
-            'riyad': 'Riyad', 'Riyad': 'Riyad',
-            'rayhan': 'Rayhan', 'Rayhan': 'Rayhan',
-            'siyam': 'Siyam', 'Siyam': 'Siyam'
-          };
-          (data.rows || []).forEach(r => {
-            if (r.editor && nameMap[r.editor]) r.editor = nameMap[r.editor];
-          });
-          data.editorNameFixV1 = true;
-        }
-        // One-time upgrade for editor-permissions + Notes column + multi-link cells
-        if (!data.colsV2) {
-          const editableIds = ['rawFile','status','frameio','finalVideo','notes'];
-          const linkIds = ['rawFile','frameio','finalVideo'];
-          data.columns.forEach(c => {
-            if (c.editorEditable === undefined) c.editorEditable = editableIds.includes(c.id);
-            if (linkIds.includes(c.id) && c.type === 'link') c.type = 'links';
-          });
-          // rename Raw File -> Raw Footage
-          const rf = data.columns.find(c => c.id === 'rawFile');
-          if (rf && rf.label === 'Raw File') rf.label = 'Raw Footage';
-          // add Notes column if missing
-          if (!data.columns.find(c => c.id === 'notes')) {
-            data.columns.push({ id:'notes', label:'Notes', type:'text', adminOnly:false, locked:true, editorEditable:true });
-          }
-          data.colsV2 = true;
-        }
-        // SAFETY: never delete rows here. Repair missing/duplicate IDs instead of dropping data.
-        const seen = new Set();
-        let repaired = 0;
-        (data.rows || []).forEach(r => {
-          if (!r.id || seen.has(r.id)) {
-            r.id = 'r_' + Date.now() + '_' + Math.floor(Math.random()*1000000) + '_' + repaired;
-            repaired++;
-          }
-          seen.add(r.id);
-        });
-        if (repaired > 0) console.warn(`[integrity] Repaired ${repaired} row ID(s) instead of deleting them`);
-      } else { await saveData(); }
+        seen.add(r.id);
+      });
+      if (repaired > 0) console.warn(`[integrity] Repaired ${repaired} row ID(s)`);
+
+      _lastSaved = _snap();
       clearError();
     } catch(e) { console.error('Load failed:', e); showError('Load failed: ' + (e.message||'unknown')); }
   }
-  let lastSaveAt = 0; // timestamp of last successful save (local clock, ms since epoch)
-  let lastUserActivityAt = 0; // last time the user clicked/typed
-  let serverUpdatedAt = null; // updated_at from server when we last fetched
-  let serverDataHash = null; // hash of data we last saved/loaded, used to detect genuine remote changes
-  const SAVE_GRACE_MS = 4000; // ignore server updates within 4s of our own save
-  const ACTIVITY_GRACE_MS = 2000; // ignore server updates within 2s of user interaction
 
-  // Track user activity to avoid mid-edit overwrites
-  document.addEventListener('click', () => { lastUserActivityAt = Date.now(); }, true);
-  document.addEventListener('keydown', () => { lastUserActivityAt = Date.now(); }, true);
-
-  // Merge protection: before overwriting the server, pull the latest copy and
-  // re-attach anything on the server that this session never saw. This prevents
-  // two people with the app open from wiping each other's rows.
-  function mergeRemoteAdditions(remote, local) {
-    if (!remote || typeof remote !== 'object') return local;
-    const merged = { ...local };
-    // --- rows ---
-    const localRows = local.rows || [];
-    const remoteRows = remote.rows || [];
-    const localIds = new Set(localRows.map(r => r.id));
-    const knownDeleted = new Set([
-      ...(local.recycleBin || []).map(x => x.id),
-    ]);
-    const rescued = remoteRows.filter(r =>
-      r && r.id && !localIds.has(r.id) && !knownDeleted.has(r.id)
-    );
-    if (rescued.length) {
-      merged.rows = [...localRows, ...rescued];
-      console.warn(`[merge] Rescued ${rescued.length} row(s) that existed on the server but not locally`);
-    }
-    // --- expenses (per period) ---
-    const localExp = local.expenses || {};
-    const remoteExp = remote.expenses || {};
-    const mergedExp = { ...localExp };
-    const binnedExp = new Set((local.expenseBin || []).map(x => x.id));
-    Object.keys(remoteExp).forEach(pk => {
-      const lList = localExp[pk] || [];
-      const lIds = new Set(lList.map(e => e.id));
-      const add = (remoteExp[pk] || []).filter(e => e && e.id && !lIds.has(e.id) && !binnedExp.has(e.id));
-      if (add.length) mergedExp[pk] = [...lList, ...add];
-    });
-    merged.expenses = mergedExp;
-    // --- leads ---
-    const lLeads = local.leads || [];
-    const rLeads = remote.leads || [];
-    const lLeadIds = new Set(lLeads.map(x => x.id));
-    const addLeads = rLeads.filter(x => x && x.id && !lLeadIds.has(x.id));
-    if (addLeads.length) merged.leads = [...lLeads, ...addLeads];
-    // --- columns (rescue by id; prevents concurrent-edit column wipes) ---
-    const lCols = local.columns || [];
-    const rCols = remote.columns || [];
-    const lColIds = new Set(lCols.map(c => c && c.id).filter(Boolean));
-    const addCols = rCols.filter(c => c && c.id && !lColIds.has(c.id));
-    if (addCols.length) {
-      merged.columns = [...lCols, ...addCols];
-      console.warn(`[merge] Rescued ${addCols.length} column(s) from server: ${addCols.map(c=>c.label||c.id).join(', ')}`);
-    }
-    // --- teams (rescue by id) ---
-    const lTeams = local.teams || [];
-    const rTeams = remote.teams || [];
-    const lTeamIds = new Set(lTeams.map(t => t && t.id).filter(Boolean));
-    const addTeams = rTeams.filter(t => t && t.id && !lTeamIds.has(t.id));
-    if (addTeams.length) {
-      merged.teams = [...lTeams, ...addTeams];
-      console.warn(`[merge] Rescued ${addTeams.length} team(s) from server`);
-    }
-    // --- individuals (rescue by name string) ---
-    const lInd = Array.isArray(local.individuals) ? local.individuals : [];
-    const rInd = Array.isArray(remote.individuals) ? remote.individuals : [];
-    const lIndSet = new Set(lInd);
-    const addInd = rInd.filter(n => n && !lIndSet.has(n));
-    if (addInd.length) {
-      merged.individuals = [...lInd, ...addInd];
-      console.warn(`[merge] Rescued ${addInd.length} individual(s) from server: ${addInd.join(', ')}`);
-    }
-    // --- editorAccounts (rescue by name) ---
-    const lEA = local.editorAccounts || [];
-    const rEA = remote.editorAccounts || [];
-    const lEANames = new Set(lEA.map(a => a && a.name).filter(Boolean));
-    const addEA = rEA.filter(a => a && a.name && !lEANames.has(a.name));
-    if (addEA.length) {
-      merged.editorAccounts = [...lEA, ...addEA];
-      console.warn(`[merge] Rescued ${addEA.length} editor account(s) from server: ${addEA.map(a=>a.name).join(', ')}`);
-    }
-    // --- clientAccounts (rescue by name) ---
-    const lCA = local.clientAccounts || [];
-    const rCA = remote.clientAccounts || [];
-    const lCANames = new Set(lCA.map(a => a && a.name).filter(Boolean));
-    const addCA = rCA.filter(a => a && a.name && !lCANames.has(a.name));
-    if (addCA.length) {
-      merged.clientAccounts = [...lCA, ...addCA];
-      console.warn(`[merge] Rescued ${addCA.length} client account(s) from server: ${addCA.map(a=>a.name).join(', ')}`);
-    }
-    return merged;
-  }
-
-  // Rolling local safety snapshots — keeps the last few good states in this browser
-  function snapshotLocal() {
-    try {
-      const rows = (data.rows || []).length;
-      if (!rows) return; // never snapshot an empty state
-      const key = 'arstudioss_snapshots';
-      let snaps = [];
-      try { snaps = JSON.parse(localStorage.getItem(key) || '[]'); } catch(_) {}
-      const last = snaps[snaps.length - 1];
-      // Only snapshot if the row count changed meaningfully or 10+ min passed
-      const now = Date.now();
-      if (last && last.rows === rows && (now - last.at) < 600000) return;
-      snaps.push({ at: now, rows, data: JSON.stringify(data) });
-      // Keep only the newest 3 (localStorage is size-limited)
-      while (snaps.length > 3) snaps.shift();
-      localStorage.setItem(key, JSON.stringify(snaps));
-    } catch(e) { /* quota exceeded — ignore, this is best-effort */ }
-  }
-
-  // Recover from a local snapshot (call from console: restoreLocalSnapshot())
-  function restoreLocalSnapshot(index) {
-    try {
-      const snaps = JSON.parse(localStorage.getItem('arstudioss_snapshots') || '[]');
-      if (!snaps.length) { console.log('No local snapshots available'); return; }
-      snaps.forEach((s,i) => console.log(`[${i}] ${new Date(s.at).toLocaleString()} — ${s.rows} rows`));
-      if (index == null) { console.log('Call restoreLocalSnapshot(index) to restore one.'); return; }
-      const snap = snaps[index];
-      if (!snap) { console.log('No snapshot at that index'); return; }
-      if (!confirm(`Restore snapshot from ${new Date(snap.at).toLocaleString()} with ${snap.rows} rows? Current data will be replaced.`)) return;
-      data = JSON.parse(snap.data);
-      saveData().then(() => { renderAll(); showToast('Local snapshot restored'); });
-    } catch(e) { console.error('Snapshot restore failed:', e); }
-  }
-
+  // ===== SAVE — diff-based per-entity writes =====
   async function saveData() {
     if (isSaving) { pendingSave = true; return; }
     isSaving = true;
     try {
-      // Pull the current server copy first and rescue anything we don't have locally
-      try {
-        const { data: srvRow } = await db.from('app_state').select('data').eq('id','main').single();
-        if (srvRow && srvRow.data) {
-          const srvHash = JSON.stringify(srvRow.data);
-          // STALE-TAB PROTECTION: if the server was modified by another user
-          // since we last synced, refuse the save. Blindly overwriting would
-          // wipe their changes; blindly merging can corrupt data because we
-          // don't track which of *our* fields are edits vs stale copies.
-          // Force a full reload so the user sees the current state and can redo
-          // their change on top of fresh data.
-          if (serverDataHash && srvHash !== serverDataHash) {
-            console.error('[safety] Server changed since last sync — blocking save to prevent stale overwrite');
-            showError('Someone else updated the CRM. Reloading to sync — please redo your last change.');
-            isSaving = false;
-            setTimeout(() => { try { window.location.reload(); } catch(e){} }, 1800);
-            return;
-          }
-          // Only merge if the server holds something different from what we last saw
-          if (srvHash !== serverDataHash) {
-            data = mergeRemoteAdditions(srvRow.data, data);
-          }
-          // Catastrophe guard: refuse to wipe a large chunk of rows in one save
-          const srvCount = (srvRow.data.rows || []).length;
-          const newCount = (data.rows || []).length;
-          if (srvCount > 5 && newCount < srvCount * 0.6) {
-            console.error(`[guard] Blocked save: would drop ${srvCount - newCount} of ${srvCount} rows`);
-            showError(`Save blocked — this would delete ${srvCount - newCount} projects. Refresh the page to reload the correct data.`);
-            isSaving = false;
-            return;
-          }
-        }
-      } catch(mergeErr) { console.warn('Pre-save merge check failed (continuing):', mergeErr); }
+      if (!_lastSaved) { _lastSaved = _snap(); isSaving = false; return; }
 
-      const nowIso = new Date().toISOString();
-      const snapshot = JSON.stringify(data); // snapshot at save time
-      const { error } = await db.from('app_state').update({ data: data, updated_at: nowIso }).eq('id','main');
-      if (error) { console.error('Save error:', JSON.stringify(error)); showError('Save error: ' + (error.message||error.code||'unknown')); }
-      else {
-        clearError();
-        lastSaveAt = Date.now();
-        serverUpdatedAt = nowIso;
-        serverDataHash = snapshot; // we know server has this exact data
-        snapshotLocal();
+      const ops = [];
+      const now = new Date().toISOString();
+
+      // 1. Settings
+      const sMap = { adminPass:'admin_pass', editorPass:'editor_pass', split:'split',
+                     pointTiers:'point_tiers', rates:'rates', lastRolloverFor:'last_rollover_for',
+                     priorityClients:'priority_clients', defaultSalaries:'default_salaries' };
+      const sChanged = {};
+      let hasSC = false;
+      for (const [jsK, dbK] of Object.entries(sMap)) {
+        if (JSON.stringify(data[jsK]) !== JSON.stringify(_lastSaved[jsK])) {
+          sChanged[dbK] = data[jsK];
+          hasSC = true;
+        }
       }
-    } catch(e) { console.error('Save failed:', e); showError('Save failed: ' + (e.message||'unknown')); }
-    finally { isSaving = false; if (pendingSave) { pendingSave = false; saveData(); } }
+      if (hasSC) {
+        sChanged.updated_at = now;
+        ops.push(db.from('settings').update(sChanged).eq('id', 'main'));
+      }
+
+      // 2. Period settings
+      const allPK = new Set([
+        ...Object.keys(data.monthRates||{}), ...Object.keys(data.takaRevenue||{}),
+        ...Object.keys(data.profitOverride||{}), ...Object.keys(data.profitNote||{}),
+        ...Object.keys(data.notes||{}),
+        ...Object.keys(_lastSaved.monthRates||{}), ...Object.keys(_lastSaved.takaRevenue||{}),
+        ...Object.keys(_lastSaved.profitOverride||{}), ...Object.keys(_lastSaved.profitNote||{}),
+        ...Object.keys(_lastSaved.notes||{}),
+      ]);
+      const psUps = [];
+      for (const pk of allPK) {
+        const cur = {
+          month_rate: (data.monthRates||{})[pk] ?? null,
+          taka_revenue: (data.takaRevenue||{})[pk] ?? null,
+          profit_override: (data.profitOverride||{})[pk] ?? null,
+          profit_note: (data.profitNote||{})[pk] ?? null,
+          notes: (data.notes||{})[pk] ?? null,
+        };
+        const prev = {
+          month_rate: (_lastSaved.monthRates||{})[pk] ?? null,
+          taka_revenue: (_lastSaved.takaRevenue||{})[pk] ?? null,
+          profit_override: (_lastSaved.profitOverride||{})[pk] ?? null,
+          profit_note: (_lastSaved.profitNote||{})[pk] ?? null,
+          notes: (_lastSaved.notes||{})[pk] ?? null,
+        };
+        if (JSON.stringify(cur) !== JSON.stringify(prev)) {
+          psUps.push({ period: pk, ...cur, updated_at: now });
+        }
+      }
+      if (psUps.length) ops.push(db.from('period_settings').upsert(psUps, { onConflict: 'period' }));
+
+      // 3. Columns
+      const colDiff = _diffByKey(data.columns||[], _lastSaved.columns||[], 'id');
+      if (colDiff.upsert.length) {
+        const dbCols = colDiff.upsert.map(c => {
+          const d = _jsToDb(c, COLUMN_FIELDS);
+          d.sort_order = (data.columns||[]).indexOf(c);
+          d.updated_at = now;
+          return d;
+        });
+        ops.push(db.from('columns').upsert(dbCols, { onConflict: 'id' }));
+      }
+      if (colDiff.remove.length) ops.push(db.from('columns').delete().in('id', colDiff.remove));
+
+      // 4. Projects
+      const rowDiff = _diffByKey(data.rows||[], _lastSaved.rows||[], 'id');
+      if (rowDiff.upsert.length) {
+        const dbRows = rowDiff.upsert.map(r => {
+          const d = _projectToDb(r);
+          d.updated_at = now;
+          return d;
+        });
+        ops.push(db.from('projects').upsert(dbRows, { onConflict: 'id' }));
+      }
+      if (rowDiff.remove.length) ops.push(db.from('projects').delete().in('id', rowDiff.remove));
+
+      // 5. Teams
+      const teamDiff = _diffByKey(data.teams||[], _lastSaved.teams||[], 'id');
+      if (teamDiff.upsert.length) {
+        const dbTeams = teamDiff.upsert.map(t => ({
+          id: t.id, name: t.name, leader: t.leader, password: t.password,
+          members: t.members||[], sort_order: (data.teams||[]).indexOf(t), updated_at: now
+        }));
+        ops.push(db.from('teams').upsert(dbTeams, { onConflict: 'id' }));
+      }
+      if (teamDiff.remove.length) ops.push(db.from('teams').delete().in('id', teamDiff.remove));
+
+      // 6. Individuals
+      const curIndiv = new Set(data.individuals||[]);
+      const prevIndiv = new Set(_lastSaved.individuals||[]);
+      const addIndiv = [...curIndiv].filter(n => !prevIndiv.has(n));
+      const delIndiv = [...prevIndiv].filter(n => !curIndiv.has(n));
+      if (addIndiv.length) {
+        ops.push(db.from('individuals').upsert(
+          addIndiv.map(n => ({ name: n, sort_order: (data.individuals||[]).indexOf(n) })),
+          { onConflict: 'name' }
+        ));
+      }
+      if (delIndiv.length) ops.push(db.from('individuals').delete().in('name', delIndiv));
+
+      // 7. Editor accounts
+      const eaDiff = _diffByKey(data.editorAccounts||[], _lastSaved.editorAccounts||[], 'name');
+      if (eaDiff.upsert.length) {
+        ops.push(db.from('editor_accounts').upsert(
+          eaDiff.upsert.map(a => ({ name: a.name, password: a.password })),
+          { onConflict: 'name' }
+        ));
+      }
+      if (eaDiff.remove.length) ops.push(db.from('editor_accounts').delete().in('name', eaDiff.remove));
+
+      // 8. Client accounts
+      const caDiff = _diffByKey(data.clientAccounts||[], _lastSaved.clientAccounts||[], 'name');
+      if (caDiff.upsert.length) {
+        ops.push(db.from('client_accounts').upsert(
+          caDiff.upsert.map(a => ({ name: a.name, password: a.password, columns: a.columns||null })),
+          { onConflict: 'name' }
+        ));
+      }
+      if (caDiff.remove.length) ops.push(db.from('client_accounts').delete().in('name', caDiff.remove));
+
+      // 9. Expenses
+      const flatExp = _flattenExpenses(data.expenses||{});
+      const flatExpPrev = _flattenExpenses(_lastSaved.expenses||{});
+      const expDiff = _diffByKey(flatExp, flatExpPrev, 'id');
+      if (expDiff.upsert.length) {
+        ops.push(db.from('expenses').upsert(
+          expDiff.upsert.map(e => { const d = _jsToDb(e, EXPENSE_FIELDS); d.updated_at = now; return d; }),
+          { onConflict: 'id' }
+        ));
+      }
+      if (expDiff.remove.length) ops.push(db.from('expenses').delete().in('id', expDiff.remove));
+
+      // 10. Leads
+      const leadDiff = _diffByKey(data.leads||[], _lastSaved.leads||[], 'id');
+      if (leadDiff.upsert.length) {
+        ops.push(db.from('leads').upsert(
+          leadDiff.upsert.map(l => _jsToDb(l, LEAD_FIELDS)),
+          { onConflict: 'id' }
+        ));
+      }
+      if (leadDiff.remove.length) ops.push(db.from('leads').delete().in('id', leadDiff.remove));
+
+      // 11. Project bin (recycleBin)
+      const binDiff = _diffByKey(data.recycleBin||[], _lastSaved.recycleBin||[], 'id');
+      if (binDiff.upsert.length) {
+        const dbBin = binDiff.upsert.map(item => {
+          const { deletedAt, deletedBy, id, ...rest } = item;
+          return { id, project_data: rest, deleted_at: deletedAt, deleted_by: deletedBy };
+        });
+        ops.push(db.from('project_bin').upsert(dbBin, { onConflict: 'id' }));
+      }
+      if (binDiff.remove.length) ops.push(db.from('project_bin').delete().in('id', binDiff.remove));
+
+      // 12. Expense bin
+      const expBinDiff = _diffByKey(data.expenseBin||[], _lastSaved.expenseBin||[], 'id');
+      if (expBinDiff.upsert.length) {
+        const dbExpBin = expBinDiff.upsert.map(item => {
+          const { deletedAt, id, period, ...rest } = item;
+          return { id, expense_data: rest, period, deleted_at: deletedAt };
+        });
+        ops.push(db.from('expense_bin').upsert(dbExpBin, { onConflict: 'id' }));
+      }
+      if (expBinDiff.remove.length) ops.push(db.from('expense_bin').delete().in('id', expBinDiff.remove));
+
+      // 13. Roster history
+      const rhCur = data.rosterHistory||{};
+      const rhPrev = _lastSaved.rosterHistory||{};
+      const rhUps = [];
+      for (const pk of new Set([...Object.keys(rhCur), ...Object.keys(rhPrev)])) {
+        if (JSON.stringify(rhCur[pk]) !== JSON.stringify(rhPrev[pk]) && rhCur[pk]) {
+          rhUps.push({ period: pk, teams: rhCur[pk].teams, individuals: rhCur[pk].individuals,
+                       snapshot_at: rhCur[pk].snapshotAt || now });
+        }
+      }
+      if (rhUps.length) ops.push(db.from('roster_history').upsert(rhUps, { onConflict: 'period' }));
+
+      // Execute all in parallel
+      if (ops.length) {
+        const results = await Promise.all(ops);
+        const failed = results.filter(r => r.error);
+        if (failed.length) {
+          console.error('Save errors:', failed.map(r => r.error));
+          showError('Save error: ' + (failed[0].error.message || 'unknown'));
+        } else {
+          clearError();
+        }
+      }
+      _lastSaved = _snap();
+    } catch(e) {
+      console.error('Save failed:', e);
+      showError('Save failed: ' + (e.message||'unknown'));
+    } finally {
+      isSaving = false;
+      if (pendingSave) { pendingSave = false; saveData(); }
+    }
   }
+
   function loadSession() {
     try {
       const r = localStorage.getItem(SESSION_KEY);
@@ -1547,56 +1793,200 @@
   function saveSession() { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
   function clearSession() { localStorage.removeItem(SESSION_KEY); session = null; }
 
-  let autoRefreshTimer = null;
-  function startAutoRefresh() {
-    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-    autoRefreshTimer = setInterval(async () => {
-      // Skip if user is actively editing
-      if (isSaving || pendingSave) return;
-      if (document.querySelector('.modal-overlay.show')) return;
+  // ===== REALTIME — instant cross-tab sync =====
+  let _realtimeChannel = null;
+  let _renderQueued = false;
+
+  function _queueRender() {
+    if (_renderQueued) return;
+    _renderQueued = true;
+    requestAnimationFrame(() => {
+      _renderQueued = false;
       if (document.querySelector('.cell-input')) return;
       if (document.querySelector('.dropdown-menu') || document.querySelector('.mini-calendar')) return;
-      // Skip if we recently saved (server might still be stale)
-      if (Date.now() - lastSaveAt < SAVE_GRACE_MS) return;
-      // Skip if user just clicked/typed something
-      if (Date.now() - lastUserActivityAt < ACTIVITY_GRACE_MS) return;
-      try {
-        const { data: row } = await db.from('app_state').select('data, updated_at').eq('id','main').single();
-        // Re-check ALL conditions after the network call
-        if (isSaving || pendingSave) return;
-        if (Date.now() - lastSaveAt < SAVE_GRACE_MS) return;
-        if (Date.now() - lastUserActivityAt < ACTIVITY_GRACE_MS) return;
-        if (document.querySelector('.cell-input')) return;
-        if (document.querySelector('.dropdown-menu') || document.querySelector('.mini-calendar')) return;
-        if (!row || !row.data) return;
-        // Only apply if server data differs from what we last knew
-        const newHash = JSON.stringify(row.data);
-        const localHash = JSON.stringify(data);
-        // If server data matches our local data, just update tracking
-        if (newHash === localHash) {
-          serverUpdatedAt = row.updated_at;
-          serverDataHash = newHash;
-          return;
-        }
-        // If server data matches what we last saved (no remote changes since), don't apply
-        if (serverDataHash && newHash === serverDataHash) {
-          serverUpdatedAt = row.updated_at;
-          return;
-        }
-        // Server has changes we don't have — apply them
-        const merged = { ...DEFAULT_DATA, ...row.data };
-        if (!merged.columns || !merged.columns.length) merged.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
-        if (!merged.rows) merged.rows = [];
-        if (!merged.editorAccounts) merged.editorAccounts = [];
-        if (!merged.clientAccounts) merged.clientAccounts = [];
-        data = merged;
-        serverUpdatedAt = row.updated_at;
-        serverDataHash = newHash;
-        renderAll();
-      } catch(e) { console.error('Auto-refresh failed:', e); }
-    }, 4000);
+      if (document.querySelector('.modal-overlay.show')) return;
+      renderAll();
+    });
   }
-  function stopAutoRefresh() { if (autoRefreshTimer) clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+
+  function _onRemote(table, payload) {
+    if (isSaving || pendingSave) return;
+    const { eventType, new: nw, old: ol } = payload;
+    let changed = false;
+
+    switch(table) {
+    case 'projects': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const row = _dbToJs(nw, PROJECT_FIELDS);
+        if (nw.custom_fields && typeof nw.custom_fields === 'object') Object.assign(row, nw.custom_fields);
+        const idx = data.rows.findIndex(r => r.id === row.id);
+        if (idx >= 0) { if (JSON.stringify(data.rows[idx]) !== JSON.stringify(row)) { data.rows[idx] = row; changed = true; } }
+        else { data.rows.push(row); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.rows.length; data.rows = data.rows.filter(r => r.id !== ol.id); changed = data.rows.length !== b;
+      }
+      break;
+    }
+    case 'columns': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const c = _dbToJs(nw, COLUMN_FIELDS); delete c.sortOrder;
+        const idx = data.columns.findIndex(x => x.id === c.id);
+        if (idx >= 0) { if (JSON.stringify(data.columns[idx]) !== JSON.stringify(c)) { data.columns[idx] = c; changed = true; } }
+        else { data.columns.push(c); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.columns.length; data.columns = data.columns.filter(c => c.id !== ol.id); changed = data.columns.length !== b;
+      }
+      break;
+    }
+    case 'expenses': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const exp = _dbToJs(nw, EXPENSE_FIELDS); const period = exp.period; delete exp.period;
+        if (!data.expenses[period]) data.expenses[period] = [];
+        const idx = data.expenses[period].findIndex(e => e.id === exp.id);
+        if (idx >= 0) { if (JSON.stringify(data.expenses[period][idx]) !== JSON.stringify(exp)) { data.expenses[period][idx] = exp; changed = true; } }
+        else { data.expenses[period].push(exp); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        for (const pk of Object.keys(data.expenses)) {
+          const b = data.expenses[pk].length; data.expenses[pk] = data.expenses[pk].filter(e => e.id !== ol.id);
+          if (data.expenses[pk].length !== b) { changed = true; break; }
+        }
+      }
+      break;
+    }
+    case 'leads': {
+      if (!data.leads) data.leads = [];
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const l = _dbToJs(nw, LEAD_FIELDS);
+        const idx = data.leads.findIndex(x => x.id === l.id);
+        if (idx >= 0) { if (JSON.stringify(data.leads[idx]) !== JSON.stringify(l)) { data.leads[idx] = l; changed = true; } }
+        else { data.leads.push(l); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.leads.length; data.leads = data.leads.filter(l => l.id !== ol.id); changed = data.leads.length !== b;
+      }
+      break;
+    }
+    case 'teams': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const t = { id: nw.id, name: nw.name, leader: nw.leader, password: nw.password, members: nw.members||[] };
+        const idx = data.teams.findIndex(x => x.id === t.id);
+        if (idx >= 0) { if (JSON.stringify(data.teams[idx]) !== JSON.stringify(t)) { data.teams[idx] = t; changed = true; } }
+        else { data.teams.push(t); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.teams.length; data.teams = data.teams.filter(x => x.id !== ol.id); changed = data.teams.length !== b;
+      }
+      break;
+    }
+    case 'individuals': {
+      if (eventType === 'INSERT' && nw) {
+        if (!data.individuals.includes(nw.name)) { data.individuals.push(nw.name); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.individuals.length; data.individuals = data.individuals.filter(n => n !== ol.name); changed = data.individuals.length !== b;
+      }
+      break;
+    }
+    case 'settings': {
+      if (eventType === 'UPDATE' && nw) {
+        const m = { admin_pass:'adminPass', editor_pass:'editorPass', split:'split',
+                    point_tiers:'pointTiers', rates:'rates', last_rollover_for:'lastRolloverFor',
+                    priority_clients:'priorityClients', default_salaries:'defaultSalaries' };
+        for (const [dbK, jsK] of Object.entries(m)) {
+          if (nw[dbK] !== undefined && JSON.stringify(data[jsK]) !== JSON.stringify(nw[dbK])) { data[jsK] = nw[dbK]; changed = true; }
+        }
+      }
+      break;
+    }
+    case 'period_settings': {
+      if ((eventType === 'INSERT' || eventType === 'UPDATE') && nw) {
+        const pk = nw.period;
+        if (!data.monthRates) data.monthRates = {};
+        if (!data.takaRevenue) data.takaRevenue = {};
+        if (!data.profitOverride) data.profitOverride = {};
+        if (!data.profitNote) data.profitNote = {};
+        if (!data.notes) data.notes = {};
+        if (nw.month_rate != null) data.monthRates[pk] = Number(nw.month_rate);
+        if (nw.taka_revenue != null) data.takaRevenue[pk] = Number(nw.taka_revenue);
+        if (nw.profit_override != null) data.profitOverride[pk] = Number(nw.profit_override);
+        else if (pk in data.profitOverride) delete data.profitOverride[pk];
+        if (nw.profit_note != null) data.profitNote[pk] = nw.profit_note;
+        if (nw.notes != null) data.notes[pk] = nw.notes;
+        changed = true;
+      }
+      break;
+    }
+    case 'editor_accounts': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const a = { name: nw.name, password: nw.password };
+        const idx = data.editorAccounts.findIndex(x => x.name === a.name);
+        if (idx >= 0) { if (JSON.stringify(data.editorAccounts[idx]) !== JSON.stringify(a)) { data.editorAccounts[idx] = a; changed = true; } }
+        else { data.editorAccounts.push(a); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.editorAccounts.length; data.editorAccounts = data.editorAccounts.filter(a => a.name !== ol.name); changed = data.editorAccounts.length !== b;
+      }
+      break;
+    }
+    case 'client_accounts': {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const a = { name: nw.name, password: nw.password, columns: nw.columns||null };
+        const idx = data.clientAccounts.findIndex(x => x.name === a.name);
+        if (idx >= 0) { if (JSON.stringify(data.clientAccounts[idx]) !== JSON.stringify(a)) { data.clientAccounts[idx] = a; changed = true; } }
+        else { data.clientAccounts.push(a); changed = true; }
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.clientAccounts.length; data.clientAccounts = data.clientAccounts.filter(a => a.name !== ol.name); changed = data.clientAccounts.length !== b;
+      }
+      break;
+    }
+    case 'project_bin': {
+      if (!data.recycleBin) data.recycleBin = [];
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const entry = { ...(nw.project_data||{}), id: nw.id, deletedAt: nw.deleted_at, deletedBy: nw.deleted_by };
+        const idx = data.recycleBin.findIndex(x => x.id === entry.id);
+        if (idx >= 0) data.recycleBin[idx] = entry; else data.recycleBin.push(entry);
+        changed = true;
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.recycleBin.length; data.recycleBin = data.recycleBin.filter(x => x.id !== ol.id); changed = data.recycleBin.length !== b;
+      }
+      break;
+    }
+    case 'expense_bin': {
+      if (!data.expenseBin) data.expenseBin = [];
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        const entry = { ...(nw.expense_data||{}), id: nw.id, period: nw.period, deletedAt: nw.deleted_at };
+        const idx = data.expenseBin.findIndex(x => x.id === entry.id);
+        if (idx >= 0) data.expenseBin[idx] = entry; else data.expenseBin.push(entry);
+        changed = true;
+      } else if (eventType === 'DELETE' && ol) {
+        const b = data.expenseBin.length; data.expenseBin = data.expenseBin.filter(x => x.id !== ol.id); changed = data.expenseBin.length !== b;
+      }
+      break;
+    }
+    }
+
+    if (changed) {
+      _lastSaved = _snap();
+      _queueRender();
+    }
+  }
+
+  function startAutoRefresh() {
+    if (_realtimeChannel) return;
+    const tables = ['projects','columns','expenses','leads','teams','individuals',
+                    'settings','period_settings','editor_accounts','client_accounts',
+                    'project_bin','expense_bin'];
+    let ch = db.channel('crm-sync');
+    tables.forEach(t => {
+      ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, p => _onRemote(t, p));
+    });
+    _realtimeChannel = ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') console.log('[realtime] Connected — live sync active');
+      if (status === 'CLOSED') console.warn('[realtime] Disconnected');
+      if (status === 'CHANNEL_ERROR') console.error('[realtime] Channel error');
+    });
+  }
+  function stopAutoRefresh() {
+    if (_realtimeChannel) { db.removeChannel(_realtimeChannel); _realtimeChannel = null; }
+  }
+
+
 
   const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1970,7 +2360,7 @@
     if (currentPage === 'leaderboard') renderLeaderboard();
     if (currentPage === 'finance') renderFinance();
     if (currentPage === 'clients') renderClientsCRM();
-    if (currentPage === 'leads') renderLeads();
+    if (currentPage === 'leads') { renderPriorityClients(); renderLeads(); }
     populateEditorFilter();
   }
 
@@ -4246,11 +4636,11 @@
       .reduce((s,r) => s + (Number(r.revenue)||0), 0);
   }
   function expenseUSD(e, rate) {
-    // USD value of an expense. usd is source of truth; fall back to taka/rate or legacy amount.
     if (e.usd != null) return Number(e.usd) || 0;
     if (e.amount != null) return Number(e.amount) || 0;
     const r = rate || monthRate();
-    if (e.taka != null && r) return Math.round((e.taka / r) * 100) / 100;
+    const tk = (Number(e.taka) || 0) + (Number(e.bonus) || 0);
+    if (tk && r) return Math.round((tk / r) * 100) / 100;
     return 0;
   }
   function periodExpenses(pk) {
@@ -4311,6 +4701,228 @@
           <span style="font-weight:700"><span style="color:var(--green-bright)">৳ ${taka(subtotal, rate).toLocaleString()}</span> · <span class="exp-amount">$${fmtMoney(subtotal)}</span></span>
         </div>
       </div>`;
+  }
+
+  // ===== Priority Clients =====
+  const PC_TIERS = [
+    { key:'a', label:'⭐⭐⭐ Top Priority', cls:'tier-a' },
+    { key:'b', label:'⭐⭐ Medium Priority', cls:'tier-b' },
+    { key:'c', label:'⭐ Low Priority', cls:'tier-c' },
+  ];
+  const PC_PLATFORMS = [
+    { key:'instagram', icon:'📷', label:'Instagram' },
+    { key:'linkedin',  icon:'💼', label:'LinkedIn' },
+    { key:'email',     icon:'✉️', label:'Email' },
+    { key:'website',   icon:'🌐', label:'Website' },
+    { key:'other',     icon:'🔗', label:'Other' },
+  ];
+
+  function ensurePc() { if (!Array.isArray(data.priorityClients)) data.priorityClients = []; }
+
+  function renderPriorityClients() {
+    if (!isAdmin()) return;
+    ensurePc();
+    const container = document.getElementById('pcContent');
+    if (!container) return;
+
+    const tierMap = { a:[], b:[], c:[] };
+    data.priorityClients.forEach(c => {
+      const t = tierMap[c.tier] ? c.tier : 'c';
+      tierMap[t].push(c);
+    });
+
+    const socialHtml = (socials) => {
+      if (!socials || !socials.length) return '<span style="color:var(--text-muted);font-size:11px">—</span>';
+      return '<div class="pc-socials">' + socials.map(s => {
+        const plat = PC_PLATFORMS.find(p => p.key === s.platform) || PC_PLATFORMS[4];
+        const display = s.label || plat.label;
+        if (s.platform === 'email' && s.url) return `<a href="mailto:${escapeAttr(s.url)}" title="${escapeAttr(s.url)}" onclick="event.stopPropagation()">${plat.icon} ${escapeHtml(display)}</a>`;
+        if (s.url) return `<a href="${escapeAttr(s.url.startsWith('http') ? s.url : 'https://'+s.url)}" target="_blank" rel="noopener" title="${escapeAttr(s.url)}" onclick="event.stopPropagation()">${plat.icon} ${escapeHtml(display)}</a>`;
+        return `<span style="font-size:11px;color:var(--text-muted)">${plat.icon} ${escapeHtml(display)}</span>`;
+      }).join('') + '</div>';
+    };
+
+    const colHtml = PC_TIERS.map(tier => {
+      const clients = tierMap[tier.key];
+      let body = '';
+      if (clients.length === 0) {
+        body = `<div class="pc-empty">Drag clients here</div>`;
+      } else {
+        body = `<table class="pc-table"><thead><tr><th>Client</th><th>Socials</th><th>Notes</th><th></th></tr></thead><tbody>` +
+          clients.map(c => `<tr draggable="true" data-pcid="${c.id}"
+              ondragstart="pcDragStart(event,'${c.id}')"
+              ondragend="pcDragEnd(event)">
+            <td class="pc-name">${escapeHtml(c.name)}</td>
+            <td>${socialHtml(c.socials)}</td>
+            <td class="pc-notes" title="${escapeAttr(c.notes||'')}">${escapeHtml(c.notes||'') || '<span style="opacity:0.35">—</span>'}</td>
+            <td><button class="pc-edit-btn" onclick="event.stopPropagation();openPcEditor('${c.id}')">✎</button></td>
+          </tr>`).join('') +
+          `</tbody></table>`;
+      }
+      return `<div class="pc-col ${tier.cls}" data-tier="${tier.key}"
+          ondragover="pcDragOver(event)"
+          ondragleave="pcDragLeave(event)"
+          ondrop="pcDrop(event,'${tier.key}')">
+        <div class="pc-col-head"><span>${tier.label}</span><span class="pc-col-count">${clients.length}</span></div>
+        ${body}
+      </div>`;
+    }).join('');
+
+    container.innerHTML = colHtml;
+  }
+
+  // Drag-and-drop for priority clients
+  let _pcDragId = null;
+  function pcDragStart(e, id) {
+    _pcDragId = id;
+    e.target.closest('tr').classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', id); } catch(_) {}
+  }
+  function pcDragEnd(e) {
+    const tr = e.target.closest('tr');
+    if (tr) tr.classList.remove('dragging');
+    document.querySelectorAll('.pc-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+  }
+  function pcDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+  }
+  function pcDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+  }
+  async function pcDrop(e, tier) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const id = _pcDragId || e.dataTransfer.getData('text/plain');
+    if (!id) return;
+    ensurePc();
+    const client = data.priorityClients.find(c => c.id === id);
+    if (!client || client.tier === tier) return;
+    pushUndo();
+    client.tier = tier;
+    renderPriorityClients();
+    await saveData();
+    showToast(`Moved to ${PC_TIERS.find(t=>t.key===tier).label}`);
+  }
+
+  // Add / Edit modal
+  function openPcEditor(id) {
+    if (!isAdmin()) return;
+    ensurePc();
+    const existing = id ? data.priorityClients.find(c => c.id === id) : null;
+    const c = existing || { id:null, name:'', tier:'a', socials:[], notes:'' };
+    const socials = (c.socials && c.socials.length) ? [...c.socials] : [{ platform:'instagram', url:'', label:'' }];
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.id = 'pcEditorModal';
+
+    const tierOpts = PC_TIERS.map(t => `<option value="${t.key}" ${c.tier===t.key?'selected':''}>${t.label}</option>`).join('');
+
+    const socialRowHtml = (s, i) => {
+      const platOpts = PC_PLATFORMS.map(p => `<option value="${p.key}" ${s.platform===p.key?'selected':''}>${p.icon} ${p.label}</option>`).join('');
+      return `<div class="pc-social-row" data-idx="${i}">
+        <select onchange="this.parentElement.dataset.platform=this.value">${platOpts}</select>
+        <input type="text" placeholder="URL or handle" value="${escapeAttr(s.url||'')}">
+        <input type="text" placeholder="Display label" value="${escapeAttr(s.label||'')}" style="max-width:120px">
+        <button type="button" class="pc-rm-link" onclick="this.parentElement.remove()" title="Remove">×</button>
+      </div>`;
+    };
+
+    modal.innerHTML = `<div class="modal" style="max-width:520px">
+      <h3>${existing?'Edit Client':'New Priority Client'}</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+        <div>
+          <div class="notes-label">Client Name *</div>
+          <input type="text" id="pcName" value="${escapeAttr(c.name)}" placeholder="Company or person name" style="width:100%;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px">
+        </div>
+        <div>
+          <div class="notes-label">Tier</div>
+          <select id="pcTier" style="width:100%;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px">${tierOpts}</select>
+        </div>
+        <div>
+          <div class="notes-label">Social Links</div>
+          <div id="pcSocialRows">${socials.map(socialRowHtml).join('')}</div>
+          <button type="button" class="btn btn-secondary" onclick="addPcSocialRow()" style="margin-top:6px;font-size:11px;padding:6px 12px">＋ Add link</button>
+        </div>
+        <div>
+          <div class="notes-label">Notes</div>
+          <textarea id="pcNotes" rows="3" placeholder="Anything worth remembering..." style="width:100%;padding:10px;background:rgba(5,13,10,0.5);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:13px;resize:vertical">${escapeHtml(c.notes||'')}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:20px">
+        ${existing ? `<button class="btn btn-secondary" onclick="deletePc('${c.id}')" style="color:var(--red);border-color:rgba(255,82,82,0.3)">Delete</button>` : ''}
+        <button class="btn btn-secondary" onclick="document.getElementById('pcEditorModal').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePc('${c.id||''}')">Save</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+    const escHandler = (ev) => { if (ev.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', escHandler); } };
+    document.addEventListener('keydown', escHandler);
+    setTimeout(() => document.getElementById('pcName').focus(), 50);
+  }
+
+  function addPcSocialRow() {
+    const container = document.getElementById('pcSocialRows');
+    if (!container) return;
+    const idx = container.children.length;
+    const platOpts = PC_PLATFORMS.map(p => `<option value="${p.key}">${p.icon} ${p.label}</option>`).join('');
+    const row = document.createElement('div');
+    row.className = 'pc-social-row';
+    row.dataset.idx = idx;
+    row.innerHTML = `<select onchange="this.parentElement.dataset.platform=this.value">${platOpts}</select>
+      <input type="text" placeholder="URL or handle" value="">
+      <input type="text" placeholder="Display label" value="" style="max-width:120px">
+      <button type="button" class="pc-rm-link" onclick="this.parentElement.remove()" title="Remove">×</button>`;
+    container.appendChild(row);
+  }
+
+  async function savePc(id) {
+    ensurePc();
+    const name = document.getElementById('pcName').value.trim();
+    if (!name) { showToast('Client name is required'); return; }
+    const tier = document.getElementById('pcTier').value;
+    const notes = document.getElementById('pcNotes').value.trim();
+    const socialRows = document.querySelectorAll('#pcSocialRows .pc-social-row');
+    const socials = [];
+    socialRows.forEach(row => {
+      const sel = row.querySelector('select');
+      const inputs = row.querySelectorAll('input');
+      const platform = sel ? sel.value : 'other';
+      const url = inputs[0] ? inputs[0].value.trim() : '';
+      const label = inputs[1] ? inputs[1].value.trim() : '';
+      if (url || label) socials.push({ platform, url, label });
+    });
+    pushUndo();
+    if (id) {
+      const client = data.priorityClients.find(c => c.id === id);
+      if (client) Object.assign(client, { name, tier, socials, notes });
+    } else {
+      data.priorityClients.push({
+        id: 'pc_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+        name, tier, socials, notes,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    document.getElementById('pcEditorModal').remove();
+    renderPriorityClients();
+    await saveData();
+    showToast(id ? 'Client updated' : 'Client added');
+  }
+
+  function deletePc(id) {
+    const editor = document.getElementById('pcEditorModal');
+    if (editor) editor.remove();
+    showConfirm('Delete this client?', 'This will remove the client from Priority Clients.', 'Delete', async () => {
+      pushUndo();
+      data.priorityClients = (data.priorityClients||[]).filter(c => c.id !== id);
+      renderPriorityClients();
+      await saveData();
+      showToast('Client removed');
+    }, true);
   }
 
   // ===== Leads Pipeline =====
@@ -4681,12 +5293,237 @@
     }, true);
   }
 
+  // ===== Finance Chart (Stripe-style) =====
+  let _finChartRange = '6m';
+
+  function getPastPeriodKeys(count) {
+    const cur = currentPeriodKey();
+    const [cy, cm] = cur.split('-').map(Number);
+    const keys = [];
+    for (let i = count - 1; i >= 0; i--) {
+      let m = cm - i, y = cy;
+      while (m < 1) { m += 12; y--; }
+      keys.push(`${y}-${String(m).padStart(2,'0')}`);
+    }
+    return keys;
+  }
+
+  function renderFinChart() {
+    const container = document.getElementById('finChartContainer');
+    if (!container) return;
+    if (foodOnlyMode() || pmOnlyMode()) { container.innerHTML = ''; return; }
+
+    const rangeMap = { '1m': 1, '3m': 3, '6m': 6, '1y': 12 };
+    let count;
+    if (_finChartRange === 'all') {
+      const allPeriods = new Set([...Object.keys(data.expenses||{}), ...data.rows.map(r => r.period||'')].filter(Boolean));
+      count = Math.max(allPeriods.size, 12);
+    } else {
+      count = rangeMap[_finChartRange] || 6;
+    }
+    const keys = getPastPeriodKeys(count);
+
+    const points = keys.map(pk => {
+      const rev = periodRevenue(pk);
+      const takaRaw = Number((data.takaRevenue||{})[pk]) || 0;
+      const r = monthRate(pk);
+      const takaUSD = r ? Math.round((takaRaw / r) * 100) / 100 : 0;
+      const totalRev = rev + takaUSD;
+      const exp = periodExpenses(pk);
+      const profitOv = (data.profitOverride||{})[pk];
+      const profit = (profitOv != null && profitOv !== '') ? Number(profitOv) : (totalRev - exp);
+      const pList = data.expenses[pk] || [];
+      const rr = monthRate(pk);
+      const bySalary = pList.filter(e=>e.type==='salary').reduce((s,e)=>s+expenseUSD(e,rr),0);
+      const byFood = pList.filter(e=>e.type==='food').reduce((s,e)=>s+expenseUSD(e,rr),0);
+      const byRegular = pList.filter(e=>(e.type||'regular')==='regular').reduce((s,e)=>s+expenseUSD(e,rr),0);
+      const byAsset = pList.filter(e=>e.type==='asset').reduce((s,e)=>s+expenseUSD(e,rr),0);
+      return { pk, rev: totalRev, profit, bySalary, byFood, byRegular, byAsset };
+    });
+
+    const totalRev = points.reduce((s,p) => s + p.rev, 0);
+    const totalProfit = points.reduce((s,p) => s + p.profit, 0);
+    const totSalary = points.reduce((s,p) => s + p.bySalary, 0);
+    const totFood = points.reduce((s,p) => s + p.byFood, 0);
+    const totRegular = points.reduce((s,p) => s + p.byRegular, 0);
+    const totAsset = points.reduce((s,p) => s + p.byAsset, 0);
+    const avgProfit = points.length ? totalProfit / points.length : 0;
+    const avgMargin = totalRev ? Math.round((totalProfit / totalRev) * 100) : 0;
+    const pctOf = (v) => totalRev ? Math.round((v / totalRev) * 100) : 0;
+    const maxVal = Math.max(...points.map(p => Math.max(p.rev, Math.abs(p.profit))), 1);
+
+    const W = 700, H = 180, padL = 0, padR = 0, padT = 10, padB = 4;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+    const step = points.length > 1 ? chartW / (points.length - 1) : chartW;
+
+    const toY = (v) => padT + chartH - (v / maxVal) * chartH;
+    const toX = (i) => padL + i * step;
+
+    const makeSmoothPath = (dataKey) => {
+      if (points.length < 2) return `M${toX(0).toFixed(1)},${toY(points[0][dataKey]).toFixed(1)}`;
+      const pts = points.map((p,i) => [toX(i), toY(p[dataKey])]);
+      let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(i-1,0)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(i+2, pts.length-1)];
+        const t = 0.35;
+        const cp1x = p1[0] + (p2[0] - p0[0]) * t / 3;
+        const cp1y = p1[1] + (p2[1] - p0[1]) * t / 3;
+        const cp2x = p2[0] - (p3[0] - p1[0]) * t / 3;
+        const cp2y = p2[1] - (p3[1] - p1[1]) * t / 3;
+        d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+      }
+      return d;
+    };
+    const makePath = makeSmoothPath;
+    const makeArea = (dataKey) => {
+      const base = toY(0);
+      const top = makeSmoothPath(dataKey);
+      return `${top} L${toX(points.length-1).toFixed(1)},${base} L${toX(0).toFixed(1)},${base} Z`;
+    };
+
+    const revPath = makePath('rev');
+    const revArea = makeArea('rev');
+    const profitPath = makePath('profit');
+    const profitArea = makeArea('profit');
+
+    const gridLines = 4;
+    let gridSvg = '';
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padT + (chartH / gridLines) * i;
+      gridSvg += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="rgba(28,56,43,0.3)" stroke-width="1"/>`;
+    }
+
+    const hoverRects = points.map((p, i) => {
+      const x = Math.max(0, toX(i) - step/2);
+      const w = i === 0 || i === points.length-1 ? step/2 + 10 : step;
+      return `<rect x="${x}" y="0" width="${w}" height="${H}" fill="transparent"
+        onmouseenter="showFinChartTip(event,${i})" onmouseleave="hideFinChartTip()" style="cursor:crosshair"/>`;
+    }).join('');
+
+    const monthLabels = points.map((p, i) => {
+      const [y, m] = p.pk.split('-').map(Number);
+      const label = MONTH_NAMES[m-1].slice(0,3) + (count > 6 ? ' '+String(y).slice(2) : '');
+      return `<span>${label}</span>`;
+    });
+    const showEvery = count > 8 ? 2 : 1;
+    const filteredLabels = monthLabels.map((l, i) => i % showEvery === 0 || i === monthLabels.length-1 ? l : '<span></span>');
+
+    const rangeOpts = [['1m','1 Month'],['3m','3 Months'],['6m','6 Months'],['1y','1 Year'],['all','Lifetime']];
+    const rangeSelect = `<select onchange="_finChartRange=this.value;renderFinChart()">${rangeOpts.map(([v,l]) => `<option value="${v}"${_finChartRange===v?' selected':''}>${l}</option>`).join('')}</select>`;
+
+    container.innerHTML = `
+      <div class="fin-chart-wrap">
+        <div class="fin-chart-head">
+          <div class="fin-chart-totals">
+            <div class="fin-chart-metric">
+              <div class="metric-label"><span class="metric-dot" style="background:#7CF2C0"></span>Revenue</div>
+              <div class="metric-val" style="color:#7CF2C0">$${fmtMoney(totalRev)}</div>
+            </div>
+            <div class="fin-chart-metric">
+              <div class="metric-label"><span class="metric-dot" style="background:#4a9eff"></span>Net Profit</div>
+              <div class="metric-val" style="color:${totalProfit>=0?'#4a9eff':'var(--red)'}">$${fmtMoney(totalProfit)}</div>
+            </div>
+            <div class="fin-chart-metric">
+              <div class="metric-label"><span class="metric-dot" style="background:#f5a623"></span>Profit Margin</div>
+              <div class="metric-val" style="color:#f5a623">${avgMargin}%</div>
+            </div>
+          </div>
+          <div class="fin-chart-range">${rangeSelect}</div>
+          <div class="fin-chart-breakdown">
+            <div class="breakdown-item"><span class="bd-dot" style="background:#f87171"></span><span class="bd-label">Salary</span><span class="bd-pct">${pctOf(totSalary)}%</span><span class="bd-val">$${fmtMoney(totSalary)}</span></div>
+            <div class="breakdown-item"><span class="bd-dot" style="background:#fbbf24"></span><span class="bd-label">Food</span><span class="bd-pct">${pctOf(totFood)}%</span><span class="bd-val">$${fmtMoney(totFood)}</span></div>
+            <div class="breakdown-item"><span class="bd-dot" style="background:#a78bfa"></span><span class="bd-label">Rent & Others</span><span class="bd-pct">${pctOf(totRegular)}%</span><span class="bd-val">$${fmtMoney(totRegular)}</span></div>
+            <div class="breakdown-item"><span class="bd-dot" style="background:#60a5fa"></span><span class="bd-label">Assets</span><span class="bd-pct">${pctOf(totAsset)}%</span><span class="bd-val">$${fmtMoney(totAsset)}</span></div>
+            <div class="breakdown-item"><span class="bd-dot" style="background:#34d399"></span><span class="bd-label">Profit</span><span class="bd-pct">${avgMargin}%</span><span class="bd-val">$${fmtMoney(totalProfit)}</span></div>
+          </div>
+        </div>
+        <div style="position:relative">
+          <svg class="fin-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+            ${gridSvg}
+            <defs>
+              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#7CF2C0" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#7CF2C0" stop-opacity="0.02"/>
+              </linearGradient>
+              <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4a9eff" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#4a9eff" stop-opacity="0.01"/>
+              </linearGradient>
+            </defs>
+            <line x1="${padL}" y1="${toY(avgProfit).toFixed(1)}" x2="${W-padR}" y2="${toY(avgProfit).toFixed(1)}" stroke="#f5a623" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6"/>
+            <text x="${W-padR-4}" y="${toY(avgProfit)-6}" fill="#f5a623" font-size="9" font-weight="700" text-anchor="end" opacity="0.7">Avg ${avgMargin}%</text>
+            <path class="fin-chart-area" d="${revArea}" fill="url(#revGrad)"/>
+            <path class="fin-chart-line" d="${revPath}" fill="none" stroke="#7CF2C0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="fin-chart-area profit-area" d="${profitArea}" fill="url(#profitGrad)"/>
+            <path class="fin-chart-line profit-line" d="${profitPath}" fill="none" stroke="#4a9eff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${points.map((p,i) => `<circle class="fin-chart-dot" cx="${toX(i)}" cy="${toY(p.rev)}" r="3.5" fill="#0d1f18" stroke="#7CF2C0" stroke-width="1.5" style="animation-delay:${0.8 + i*0.08}s"/>`).join('')}
+            ${points.map((p,i) => `<circle class="fin-chart-dot" cx="${toX(i)}" cy="${toY(p.profit)}" r="3.5" fill="#0d1f18" stroke="#4a9eff" stroke-width="1.5" style="animation-delay:${0.95 + i*0.08}s"/>`).join('')}
+            ${hoverRects}
+          </svg>
+          <div id="finChartTip" class="fin-chart-tooltip" style="display:none"></div>
+        </div>
+        <div class="fin-chart-labels">${filteredLabels.join('')}</div>
+      </div>`;
+
+    window._finChartPoints = points;
+  }
+
+  function showFinChartTip(e, idx) {
+    const tip = document.getElementById('finChartTip');
+    if (!tip || !window._finChartPoints) return;
+    const p = window._finChartPoints[idx];
+    const label = periodKeyToLabel(p.pk);
+    tip.innerHTML = `<div class="tt-period">${label}</div>
+      <div class="tt-rev">Revenue: $${fmtMoney(p.rev)}</div>
+      <div class="tt-profit">Profit: $${fmtMoney(p.profit)}</div>`;
+    tip.style.display = 'block';
+    requestAnimationFrame(() => tip.classList.add('visible'));
+    const wrap = tip.parentElement;
+    const rect = wrap.getBoundingClientRect();
+    const tipW = tip.offsetWidth;
+    let left = e.clientX - rect.left + 12;
+    if (left + tipW > rect.width) left = left - tipW - 24;
+    tip.style.left = Math.max(0, left) + 'px';
+    tip.style.top = '10px';
+  }
+  function hideFinChartTip() {
+    const tip = document.getElementById('finChartTip');
+    if (tip) { tip.classList.remove('visible'); setTimeout(() => { if (!tip.classList.contains('visible')) tip.style.display = 'none'; }, 200); }
+  }
+
+  let _salarySeeding = false;
+  async function ensureSalaries(pk) {
+    if (_salarySeeding) return;
+    if (!data.expenses[pk]) data.expenses[pk] = [];
+    const list = data.expenses[pk];
+    const existing = new Set(list.filter(e => e.type === 'salary' && e.salaryKind === 'salary').map(e => (e.name||'').trim().toLowerCase()));
+    const defs = data.defaultSalaries || DEFAULT_DATA.defaultSalaries;
+    if (!defs || !defs.length) return;
+    const toAdd = defs.filter(d => !existing.has(d.name.trim().toLowerCase()));
+    if (!toAdd.length) return;
+    _salarySeeding = true;
+    toAdd.forEach(d => {
+      list.push({
+        id: 'e_'+Date.now()+'_'+Math.floor(Math.random()*10000),
+        name: d.name, usd: null, taka: d.taka, notes: '',
+        type: 'salary', salaryKind: 'salary',
+        createdAt: new Date().toISOString()
+      });
+    });
+    await saveData();
+    _salarySeeding = false;
+  }
+
   function renderFinance() {
     const pk = activePeriodKey();
     document.getElementById('financePeriodLabel').textContent = 'Period: ' + periodLabel();
 
     // Food-only admin AND project manager: show ONLY the food expenses sheet
     if (foodOnlyMode() || pmOnlyMode()) { renderFoodOnly(pk); return; }
+
+    ensureSalaries(pk);
+    renderFinChart();
 
     const rate = monthRate(pk);
     const usdRevenue = periodRevenue(pk); // net of Fiverr's 20%
@@ -4703,7 +5540,7 @@
     const split = data.split || { Rashid:77, Fahim:18, Siam:5 };
     const splitTotal = Object.values(split).reduce((s,v) => s + (Number(v)||0), 0);
 
-    const order = ['Rashid','Fahim','Siam'];
+    const order = ['Rashid','Fahim'];
     const splitNames = [...order.filter(n => n in split), ...Object.keys(split).filter(n => !order.includes(n))];
 
     let html = '';
@@ -4779,6 +5616,7 @@
                 <div class="split-profit-amt">$${fmtMoney(profitCut)}</div>
                 <div class="split-taka">৳ ${taka(profitCut, rate).toLocaleString()}</div>
               </span>
+              <button onclick="removeSplitPerson('${escapeAttr(name)}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;opacity:0.4;padding:2px 4px" title="Remove">×</button>
             </div>`;
         }).join('')}
         ${splitTotal !== 100 ? `<div class="split-warn">⚠ Percentages total ${splitTotal}% (should be 100%)</div>` : ''}
@@ -4793,15 +5631,13 @@
       const d = new Date(iso);
       return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     };
-    const renderExpRows = (rows, showKind) => rows.length === 0
-      ? `<tr><td colspan="${showKind?6:5}" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>`
+    const renderExpRows = (rows) => rows.length === 0
+      ? `<tr><td colspan="5" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>`
       : rows.map(e => {
           const usd = expenseUSD(e, rate);
           const tk = e.taka != null ? e.taka : Math.round(usd * rate);
-          const kindCell = showKind ? `<td><div class="exp-cell" onclick="toggleSalaryKind('${e.id}')" style="cursor:pointer">${(e.salaryKind==='bonus')?'<span style="color:#ffce4a;font-size:11px;font-weight:700">Bonus</span>':'<span style="color:#7ee2b8;font-size:11px;font-weight:700">Salary</span>'}</div></td>` : '';
           return `<tr>
             <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div>${e.createdAt?`<div style="font-size:9px;color:var(--text-muted);opacity:0.6;padding:0 8px">${fmtTS(e.createdAt)}</div>`:''}</td>
-            ${kindCell}
             <td><div class="exp-cell ${e.taka?'':'empty'}" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${Number(tk).toLocaleString()}</span>`:'৳ 0'}</div></td>
             <td><div class="exp-cell ${usd?'':'empty'}" onclick="editExpense(event,'${e.id}','usd')">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
             <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
@@ -4809,12 +5645,10 @@
           </tr>`;
         }).join('');
 
-    const expSection = (key, label, icon, showKind) => {
+    const expSection = (key, label, icon) => {
       const rows = expList.filter(e => (e.type||'regular') === key);
       const subtotal = rows.reduce((s,e) => s + expenseUSD(e, rate), 0);
-      const headCols = showKind
-        ? `<th>Expense</th><th style="width:64px">Type</th><th style="width:88px">Taka (৳)</th><th style="width:80px">USD ($)</th><th>Notes</th><th style="width:28px"></th>`
-        : `<th>Expense</th><th style="width:92px">Taka (৳)</th><th style="width:84px">USD ($)</th><th>Notes</th><th style="width:28px"></th>`;
+      const headCols = `<th>Expense</th><th style="width:92px">Taka (৳)</th><th style="width:84px">USD ($)</th><th>Notes</th><th style="width:28px"></th>`;
       return `<div class="exp-section tint-${key}">
         <div class="exp-section-head">
           <span class="es-title"><span class="es-icon">${icon}</span>${label}</span>
@@ -4822,9 +5656,43 @@
         </div>
         <table class="exp-table">
           <thead><tr>${headCols}</tr></thead>
-          <tbody>${renderExpRows(rows, showKind)}</tbody>
+          <tbody>${renderExpRows(rows, false)}</tbody>
         </table>
         <div class="exp-add" onclick="addExpense('${key}')">＋ Add ${label.toLowerCase()}</div>
+      </div>`;
+    };
+
+    const salarySection = () => {
+      const rows = expList.filter(e => e.type === 'salary' && (e.salaryKind || 'salary') === 'salary');
+      const subtotal = rows.reduce((s,e) => s + expenseUSD(e, rate), 0);
+      const salaryRows = rows.length === 0
+        ? `<tr><td colspan="6" style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic">None yet</td></tr>`
+        : rows.map(e => {
+            const tk = Number(e.taka) || 0;
+            const bn = Number(e.bonus) || 0;
+            const totalTk = tk + bn;
+            const usd = expenseUSD(e, rate);
+            const bnColor = bn > 0 ? 'color:#7CF2C0' : bn < 0 ? 'color:var(--red)' : 'color:var(--text-muted)';
+            const bnPrefix = bn > 0 ? '+' : '';
+            return `<tr>
+              <td><div class="exp-cell ${e.name?'':'empty'}" onclick="editExpense(event,'${e.id}','name')">${e.name?escapeHtml(e.name):'Name'}</div>${e.createdAt?`<div style="font-size:9px;color:var(--text-muted);opacity:0.6;padding:0 8px">${fmtTS(e.createdAt)}</div>`:''}</td>
+              <td><div class="exp-cell" onclick="editExpense(event,'${e.id}','taka')">${tk?`<span style="color:var(--green-bright)">৳ ${tk.toLocaleString()}</span>`:'৳ 0'}</div></td>
+              <td><div class="exp-cell" onclick="editExpense(event,'${e.id}','bonus')" style="cursor:pointer"><span style="${bnColor};font-weight:600">${bn ? bnPrefix + '৳ ' + Math.abs(bn).toLocaleString() : '—'}</span></div></td>
+              <td><div class="exp-cell">${usd?`<span class="exp-amount">$${usd.toLocaleString()}</span>`:'$0'}</div></td>
+              <td><div class="exp-cell ${e.notes?'':'empty'}" onclick="editExpense(event,'${e.id}','notes')">${e.notes?escapeHtml(e.notes):'—'}</div></td>
+              <td style="text-align:center"><span class="exp-del" onclick="deleteExpense('${e.id}')">🗑</span></td>
+            </tr>`;
+          }).join('');
+      return `<div class="exp-section tint-salary">
+        <div class="exp-section-head">
+          <span class="es-title"><span class="es-icon">💰</span>Salary</span>
+          <span class="es-total"><span style="color:var(--green-bright)">৳ ${taka(subtotal, rate).toLocaleString()}</span> <span style="color:var(--text-muted);font-weight:400">·</span> <span class="exp-amount">$${fmtMoney(subtotal)}</span></span>
+        </div>
+        <table class="exp-table">
+          <thead><tr><th>Employee</th><th style="width:88px">Taka (৳)</th><th style="width:88px">Bonus (৳)</th><th style="width:76px">USD ($)</th><th>Notes</th><th style="width:28px"></th></tr></thead>
+          <tbody>${salaryRows}</tbody>
+        </table>
+        <div class="exp-add" onclick="addExpenseKind('salary')">＋ Add salary</div>
       </div>`;
     };
 
@@ -4837,13 +5705,13 @@
       <div class="grid-2col" style="gap:20px">
         <div>
           <div class="exp-col-title">Operating Costs</div>
-          ${expSection('regular','Regular Expenses','💳', false)}
-          ${expSection('food','Food Expenses','🍽️', false)}
+          ${expSection('regular','Regular Expenses','💳')}
+          ${expSection('food','Food Expenses','🍽️')}
         </div>
         <div>
           <div class="exp-col-title">People & Assets</div>
-          ${expSection('salary','Salary + Bonuses','💰', true)}
-          ${expSection('asset','Assets','🖥️', false)}
+          ${salarySection()}
+          ${expSection('asset','Assets','🖥️')}
         </div>
       </div>
       <div style="margin-top:6px;padding:16px 18px;background:rgba(5,13,10,0.5);border-radius:12px;display:flex;justify-content:space-between;align-items:center">
@@ -5027,6 +5895,16 @@
     renderFinance(); await saveData();
   }
 
+  async function removeSplitPerson(name) {
+    if (!data.split || !(name in data.split)) return;
+    showConfirm(`Remove ${name} from split?`, 'Their percentage will be removed. You can re-add them in Settings.', 'Remove', async () => {
+      pushUndo();
+      delete data.split[name];
+      renderFinance(); await saveData();
+      showToast(`${name} removed from split`);
+    }, true);
+  }
+
   async function addExpense(type) {
     const pk = activePeriodKey();
     if (!data.expenses[pk]) data.expenses[pk] = [];
@@ -5036,14 +5914,19 @@
       type: type || 'regular',
       createdAt: new Date().toISOString()
     };
-    if (item.type === 'salary') item.salaryKind = 'salary'; // default; toggle to 'bonus'
+    if (item.type === 'salary') item.salaryKind = 'salary';
     data.expenses[pk].push(item);
     renderFinance(); await saveData();
   }
-  async function toggleSalaryKind(id) {
-    const e = findExpense(id); if (!e) return;
-    pushUndo();
-    e.salaryKind = (e.salaryKind === 'bonus') ? 'salary' : 'bonus';
+  async function addExpenseKind(kind) {
+    const pk = activePeriodKey();
+    if (!data.expenses[pk]) data.expenses[pk] = [];
+    data.expenses[pk].push({
+      id: 'e_'+Date.now()+'_'+Math.floor(Math.random()*10000),
+      name:'', usd:null, taka:null, notes:'',
+      type:'salary', salaryKind: kind,
+      createdAt: new Date().toISOString()
+    });
     renderFinance(); await saveData();
   }
   function findExpense(id) {
@@ -5053,7 +5936,7 @@
   function editExpense(ev, id, field) {
     const e = findExpense(id); if (!e) return;
     const td = ev.currentTarget.parentElement;
-    const isNum = (field === 'usd' || field === 'taka');
+    const isNum = (field === 'usd' || field === 'taka' || field === 'bonus');
     const type = isNum ? 'number' : 'text';
     const rate = monthRate();
     if (e.amount != null && e.usd == null) { e.usd = e.amount; delete e.amount; }
@@ -5071,7 +5954,10 @@
         e.taka = (num != null && rate) ? Math.round(num * rate) : e.taka;
       } else if (field === 'taka') {
         e.taka = num;
-        e.usd = (num != null && rate) ? Math.round((num / rate) * 100) / 100 : e.usd;
+        e.usd = null;
+      } else if (field === 'bonus') {
+        e.bonus = num;
+        e.usd = null;
       }
       renderFinance(); await saveData();
     };
@@ -5374,6 +6260,13 @@
     if (!data.columns || !data.columns.length) data.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
     if (!data.rows) data.rows = [];
     if (!data.expenses) data.expenses = {};
+    if (!data.leads) data.leads = [];
+    if (!data.recycleBin) data.recycleBin = [];
+    if (!data.expenseBin) data.expenseBin = [];
+    if (!data.rosterHistory) data.rosterHistory = {};
+    if (!data.individuals) data.individuals = [];
+    if (!data.editorAccounts) data.editorAccounts = [];
+    if (!data.clientAccounts) data.clientAccounts = [];
     await saveData();
     renderAll();
     showToast('Backup restored successfully');
@@ -5387,7 +6280,7 @@
     const expenses = periodExpenses(pk);
     const profit = revenue - expenses;
     const split = data.split || {};
-    const order = ['Rashid','Fahim','Siam'];
+    const order = ['Rashid','Fahim'];
     const splitNames = [...order.filter(n => n in split), ...Object.keys(split).filter(n => !order.includes(n))];
     const prows = data.rows.filter(r => (r.period || currentPeriodKey()) === pk);
     const expList = data.expenses[pk] || [];
@@ -5983,16 +6876,10 @@
   async function init() {
     try {
       await loadData(); loadSession(); populateLoginDropdown();
-      // FIRST: fix any rows wrongly shifted to next month by the old 16th-boundary bug
-      await fixBoundaryShift();
-      // Lock in per-period roster snapshots (one-time migration for all past periods)
-      await snapshotPastPeriodsOnce();
-      // THEN run the normal rollover (moves genuinely-past incomplete rows forward)
       await rolloverIncomplete();
-      // Auto-purge entries older than 45 days from recycle bins
       const purged = purgeOldRecycleBin();
       const purgedExp = purgeOldExpenseBin();
-      if (purged || purgedExp) { await saveData(); }
+      if (purged || purgedExp || _needSplitSave) { await saveData(); _needSplitSave = false; }
       document.getElementById('loadingOverlay').style.display = 'none';
       if (session) showApp(); else {
         document.getElementById('loginScreen').style.display = 'flex';
